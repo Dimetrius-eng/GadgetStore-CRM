@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <title>Чек #{{.ID}} — GadgetStore CRM</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background-color: #f1f5f9; padding: 2rem; font-family: monospace; }
+        .receipt-card { max-width: 380px; margin: 0 auto; background: #fff; padding: 1.5rem; border: 1px dashed #cbd5e1; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
+        .receipt-table { width:100%; table-layout:fixed; }
+        .receipt-product-name { white-space:normal; overflow-wrap:anywhere; word-break:normal; }
+        .receipt-line-item td { white-space:nowrap; vertical-align:middle; }
+        .receipt-line-item td:last-child { width:34%; }
+        @media(max-width:420px) { body { padding:1rem; } .receipt-card { padding:1rem; } .receipt-line-item { font-size:.88rem; } }
+        @media print {
+            body { background: white; padding: 0; }
+            .no-print { display: none !important; }
+            .receipt-card { border: none; shadow: none; width: 100%; max-width: 100%; }
+        }
+    </style>
+</head>
+<body>
+
+<button type="button" id="receiptLanguage" class="no-print btn btn-outline-secondary btn-sm position-absolute top-0 end-0 m-3">EN</button>
+
+<div class="receipt-card">
+    <div class="text-center mb-3">
+        <h4 class="fw-bold mb-1">GadgetStore CRM</h4>
+        <div class="small text-muted">Магазин електроніки та гаджетів</div>
+        <div class="small text-muted">м. Київ, вул. Хрещатик, 1</div>
+        <div class="small text-muted">Тел: +38 (044) 123-45-67</div>
+        <hr class="my-2">
+        <div class="fw-bold fs-5">ТОВАРНИЙ ЧЕК #{{.ID}}</div>
+        <div class="small text-muted">Дата: {{.CreatedAtFormatted}}</div>
+    </div>
+
+    <table class="table table-sm table-borderless my-3 align-middle receipt-table">
+        <colgroup><col style="width:66%"><col style="width:34%"></colgroup>
+        <tbody>
+            <tr>
+                <td colspan="2" class="fw-bold fs-6 receipt-product-name">{{.ProductTitle}}</td>
+            </tr>
+            <tr class="receipt-line-item">
+                <td class="text-muted">{{.QuantitySold}} шт x {{formatMoney .UnitPrice}}</td>
+                <td class="text-end fw-bold">{{formatMoney .TotalPrice}}</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <hr class="my-2">
+
+    <div class="d-flex justify-content-between align-items-center fw-bold fs-5 my-2">
+        <span>ДО СПЛАТИ:</span>
+        <span class="text-success">{{formatMoney .TotalPrice}}</span>
+    </div>
+
+    <hr class="my-2">
+
+    <div class="text-center small text-muted mt-3">
+        <div>Дякуємо за покупку!</div>
+        <div>Зберігайте чек для гарантійного обслуговування.</div>
+    </div>
+
+    <div class="no-print mt-4 text-center">
+        <button onclick="window.print()" class="btn btn-primary w-100 fw-bold">
+            🖨️ Роздрукувати / Зберегти в PDF
+        </button>
+    </div>
+</div>
+
+<script>
+const receiptEN={"Магазин електроніки та гаджетів":"Electronics and gadgets store","м. Київ, вул. Хрещатик, 1":"1 Khreshchatyk Street, Kyiv","ТОВАРНИЙ ЧЕК":"SALES RECEIPT","Дата:":"Date:","ДО СПЛАТИ:":"TOTAL DUE:","ДО СТРАТИ:":"TOTAL DUE:","Дякуємо за покупку!":"Thank you for your purchase!","Зберігайте чек для гарантійного обслуговування.":"Keep this receipt for warranty service.","🖨️ Роздрукувати / Зберегти в PDF":"🖨️ Print / Save as PDF"};
+const receiptOriginals=new WeakMap();
+function setReceiptLanguage(language){document.documentElement.lang=language;localStorage.setItem('gadget-language',language);document.getElementById('receiptLanguage').textContent=language==='uk'?'EN':'УК';const walker=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT);while(walker.nextNode()){const node=walker.currentNode;if(node.parentElement.closest('script,style'))continue;if(!receiptOriginals.has(node))receiptOriginals.set(node,node.nodeValue);let value=receiptOriginals.get(node);if(language==='en'){for(const [uk,en] of Object.entries(receiptEN))value=value.split(uk).join(en);value=value.replace(/(\d+)\s*шт/gi,'$1 pcs')}node.nodeValue=value}}
+if(localStorage.getItem('gadget-language')==='en')setReceiptLanguage('en');document.getElementById('receiptLanguage').addEventListener('click',()=>setReceiptLanguage(document.documentElement.lang==='uk'?'en':'uk'));
+</script>
+
+</body>
+</html>

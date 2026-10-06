@@ -1,0 +1,119 @@
+{{define "content"}}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="fw-bold m-0 text-slate-800">Каса та Історія продажів</h2>
+        <p class="text-muted m-0 small">Проведення розрахункових операцій та друк чеків</p>
+    </div>
+</div>
+
+<div class="row g-4">
+    <!-- Форма продажу -->
+    <div class="col-lg-4">
+        <div class="card card-custom p-4">
+            <h5 class="fw-bold mb-3 text-primary"><i class="bi bi-cart-plus-fill me-2"></i>Новий продаж</h5>
+            <form action="/sales/create" method="POST" target="_blank">
+                <div class="mb-3">
+                    <label for="productSearch" class="form-label fw-semibold">Оберіть гаджет</label>
+                    <div class="product-picker" id="productPicker">
+                        <input type="hidden" name="product_id" id="selectedProductId">
+                        <input type="search" id="productSearch" class="form-control" placeholder="Введіть назву або артикул товару..." autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="productOptions" required>
+                        <div class="product-options" id="productOptions" role="listbox" hidden>
+                            {{range .Products}}
+                            <button type="button" class="product-option{{if le .Quantity 0}} product-option-unavailable{{end}}" role="option" data-product-id="{{.ID}}" data-value="{{.Title}}" data-search="{{.Title}} {{.SKU}}">
+                                {{.Title}} (Доступно: {{.Quantity}} шт | {{formatMoney .SellingPrice}})
+                            </button>
+                            {{else}}
+                            <div class="product-options-empty">У каталозі поки немає товарів.</div>
+                            {{end}}
+                            <div class="product-options-empty" id="noProductMatches" hidden>За запитом товарів не знайдено.</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mb-4">
+                    <label class="form-label fw-semibold">Кількість для продажу</label>
+                    <input type="number" name="quantity" class="form-control" value="1" min="1" required>
+                </div>
+
+                <button type="submit" class="btn btn-success w-100 fw-bold py-2 shadow-sm">
+                    <i class="bi bi-check2-circle me-1"></i> Провести продаж
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Таблиця історії -->
+    <div class="col-lg-8">
+        <div class="card card-custom p-4">
+            <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3">
+                <h5 class="fw-bold m-0 text-dark"><i class="bi bi-clock-history me-2"></i>Останні проведені чеки</h5>
+                <span class="small text-muted"><span id="salesResultLabel">Показано чеків:</span> <strong id="salesResultCount">{{len .Sales}}</strong></span>
+            </div>
+            <div class="input-group mb-3 sales-search">
+                <span class="input-group-text bg-white text-muted"><i class="bi bi-search"></i></span>
+                <input type="search" id="salesSearch" class="form-control" placeholder="Пошук за назвою гаджета, датою або номером чека..." aria-label="Пошук продажів за назвою, датою або номером чека" autocomplete="off">
+            </div>
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Чек #</th>
+                            <th>Гаджет</th>
+                            <th>Кількість</th>
+                            <th>Загальна сума</th>
+                            <th>Прибуток</th>
+                            <th>Дата/Час</th>
+                            <th class="text-end">Дія</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {{range .Sales}}
+                        <tr data-sale-search="{{.ID}} #{{.ID}} {{.ProductTitle}} {{.CreatedAtFormatted}} {{.CreatedAtISO}}">
+                            <td><code>#{{.ID}}</code></td>
+                            <td class="fw-semibold">{{.ProductTitle}}</td>
+                            <td><span class="badge bg-secondary">{{.QuantitySold}} шт</span></td>
+                            <td class="fw-bold text-success">{{formatMoney .TotalPrice}}</td>
+                            <td class="text-primary">{{formatMoney .Profit}}</td>
+                            <td class="small text-muted">{{.CreatedAtFormatted}}</td>
+                            <td class="text-end">
+                                <a href="/sales/receipt?id={{.ID}}" class="btn btn-sm btn-outline-dark" target="_blank" title="Друк чека">
+                                    <i class="bi bi-printer-fill"></i> Чек
+                                </a>
+                            </td>
+                        </tr>
+                        {{else}}
+                        <tr>
+                            <td id="salesNoSales" colspan="7" class="text-center py-4 text-muted">Продажів ще не зафіксовано.</td>
+                        </tr>
+                        {{end}}
+                        <tr id="salesNoMatch" hidden><td colspan="7" class="text-center py-4 text-muted">За вашим запитом чеків не знайдено.</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+<style>
+.sales-search{max-width:560px}.sales-search .form-control:focus{box-shadow:none;border-color:#93c5fd}
+.product-picker{position:relative}.product-options{position:absolute;inset:calc(100% + .15rem) 0 auto;z-index:20;max-height:18rem;overflow-y:auto;overflow-x:hidden;background:#fff;border:1px solid #ced4da;border-radius:.375rem;box-shadow:0 .2rem .45rem rgba(15,23,42,.12);padding:.15rem 0}
+.product-option{display:block;width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left;padding:.375rem .75rem;border:0;border-radius:0;background:#fff;color:#212529}.product-option:hover,.product-option.is-active{background:#0d6efd;color:#fff}.product-option-unavailable{opacity:.5}.product-options-empty{padding:.5rem .75rem;color:#64748b;font-size:.9rem}
+</style>
+<script>
+(()=>{
+ const picker=document.getElementById('productPicker'),input=document.getElementById('productSearch'),idField=document.getElementById('selectedProductId');
+ if(picker&&input){const panel=document.getElementById('productOptions'),options=[...panel.querySelectorAll('.product-option')],empty=document.getElementById('noProductMatches');let active=-1;
+  const visible=()=>options.filter(option=>!option.hidden&&!option.disabled);
+  const open=()=>{panel.hidden=false;input.setAttribute('aria-expanded','true')};
+  const close=()=>{panel.hidden=true;input.setAttribute('aria-expanded','false');active=-1;options.forEach(option=>option.classList.remove('is-active'))};
+  const filter=()=>{const query=input.value.trim().toLocaleLowerCase();idField.value='';input.setCustomValidity('');active=-1;let shown=0;for(const option of options){const matches=option.dataset.search.toLocaleLowerCase().includes(query);option.hidden=!matches;option.disabled=option.classList.contains('product-option-unavailable');if(matches)shown++}if(empty)empty.hidden=shown!==0;open()};
+  const choose=option=>{if(!option||option.disabled)return;input.value=option.dataset.value;idField.value=option.dataset.productId;input.setCustomValidity('');close()};
+  input.addEventListener('focus',()=>{filter()});input.addEventListener('input',filter);
+  input.addEventListener('keydown',event=>{const items=visible();if(event.key==='ArrowDown'||event.key==='ArrowUp'){event.preventDefault();open();if(!items.length)return;const step=event.key==='ArrowDown'?1:-1;active=active<0?(step===1?0:items.length-1):(active+step+items.length)%items.length;options.forEach(option=>option.classList.remove('is-active'));items[active].classList.add('is-active');items[active].scrollIntoView({block:'nearest'})}else if(event.key==='Enter'&&!panel.hidden){const selected=active>=0?items[active]:items.length===1?items[0]:null;if(selected){event.preventDefault();choose(selected)}}else if(event.key==='Escape')close()});
+  options.forEach(option=>option.addEventListener('click',()=>choose(option)));
+  document.addEventListener('click',event=>{if(!picker.contains(event.target))close()});
+  input.form.addEventListener('submit',event=>{if(!idField.value){event.preventDefault();input.setCustomValidity(document.documentElement.lang==='en'?'Choose a product from the list.':'Оберіть товар зі списку.');input.reportValidity()}});
+ }
+ const salesSearchInput=document.getElementById('salesSearch');if(!salesSearchInput)return;const rows=[...document.querySelectorAll('[data-sale-search]')],count=document.getElementById('salesResultCount'),noMatch=document.getElementById('salesNoMatch');salesSearchInput.addEventListener('input',()=>{const terms=salesSearchInput.value.trim().toLocaleLowerCase().split(/\s+/).filter(Boolean);let shown=0;for(const row of rows){const text=row.dataset.saleSearch.toLocaleLowerCase();const matches=terms.every(term=>text.includes(term));row.hidden=!matches;if(matches)shown++}count.textContent=shown;noMatch.hidden=rows.length===0||terms.length===0||shown!==0})
+})();
+</script>
+{{end}}

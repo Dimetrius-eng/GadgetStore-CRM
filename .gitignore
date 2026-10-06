@@ -1,0 +1,18 @@
+# Local IDE configuration
+.idea/
+.vscode/
+
+# Environment variables and credentials
+.env
+.env.*
+!.env.example
+
+# Local/runtime files
+*.exe
+*.test
+/bin/
+/tmp/
+
+# Go coverage output
+coverage.out
+coverage.html

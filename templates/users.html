@@ -1,0 +1,16 @@
+{{define "content"}}
+<div class="mb-4"><h2 class="fw-bold m-0">Керування користувачами</h2><p class="text-muted m-0 small">Створюйте окремі акаунти для менеджерів магазину</p></div>
+<div class="row g-4">
+  <div class="col-lg-4"><section class="card card-custom p-4"><h5 class="fw-bold mb-3">Додати менеджера</h5>
+    <form action="/users/add" method="POST">
+      <label class="form-label">Повне ім’я</label><input class="form-control mb-3" name="full_name" maxlength="100" required>
+      <label class="form-label">Логін</label><input class="form-control mb-3" name="username" minlength="3" maxlength="50" autocomplete="off" required>
+      <label class="form-label">Пароль</label><input class="form-control mb-3" type="password" name="password" minlength="8" autocomplete="new-password" required>
+      <button class="btn btn-royal w-100" type="submit">Створити акаунт</button>
+    </form>
+  </section></div>
+  <div class="col-lg-8"><section class="card card-custom p-4"><h5 class="fw-bold mb-3">Акаунти користувачів</h5><div class="table-responsive"><table class="table align-middle"><thead><tr><th>Ім’я</th><th>Логін</th><th>Роль</th><th></th></tr></thead><tbody>
+  {{range .Users}}<tr><td class="fw-semibold">{{.FullName}}</td><td><code>{{.Username}}</code></td><td>{{if eq .Role "admin"}}Адміністратор{{else}}Менеджер{{end}}</td><td class="text-end">{{if ne .Role "admin"}}<form method="POST" action="/users/delete"><input type="hidden" name="id" value="{{.ID}}"><button class="btn btn-sm btn-outline-danger" onclick="return confirm(document.documentElement.lang==='en'?'Delete this manager account?':'Видалити акаунт менеджера?')">Видалити</button></form>{{end}}</td></tr>{{else}}<tr><td colspan="4" class="text-center text-muted">Користувачів поки немає</td></tr>{{end}}
+  </tbody></table></div></section></div>
+</div>
+{{end}}

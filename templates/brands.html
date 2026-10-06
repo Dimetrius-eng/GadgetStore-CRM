@@ -1,0 +1,55 @@
+{{define "content"}}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="fw-bold m-0 text-slate-800">Бренди / Виробники</h2>
+        <p class="text-muted m-0 small">Управління списками брендів гаджетів</p>
+    </div>
+</div>
+
+<div class="row g-4">
+    <div class="col-md-4">
+        <div class="card card-custom p-4">
+            <h5 class="fw-bold mb-3"><i class="bi bi-plus-lg text-primary me-2"></i>Новий бренд</h5>
+            <form action="/brands/add" method="POST">
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Назва бренду</label>
+                    <input type="text" name="name" class="form-control" placeholder="Наприклад: Apple, Samsung" required>
+                </div>
+                <button type="submit" class="btn btn-royal w-100"><i class="bi bi-save me-1"></i> Зберегти</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="col-md-8">
+        <div class="card card-custom p-4">
+            <h5 class="fw-bold mb-3"><i class="bi bi-award-fill me-2"></i>Існуючі бренди</h5>
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>ID</th>
+                            <th>Назва бренду</th>
+                            <th>Прив'язано товарів</th>
+                            <th class="text-end">Дія</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {{range .}}
+                        <tr>
+                            <td><code>#{{.ID}}</code></td>
+                            <td class="fw-bold">{{.Name}}</td>
+                            <td><span class="badge bg-info text-dark">{{.ProductCount}} шт</span></td>
+                            <td class="text-end">
+                                <form action="/brands/delete?id={{.ID}}" method="POST" class="d-inline" onsubmit="return confirm(document.documentElement.lang==='en'?'Delete this brand?':'Видалити бренд?');"><button type="submit" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash-fill"></i></button></form>
+                            </td>
+                        </tr>
+                        {{else}}
+                        <tr><td colspan="4" class="text-center py-3 text-muted">Брендів ще немає.</td></tr>
+                        {{end}}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{{end}}
