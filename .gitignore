@@ -16,3 +16,9 @@
 # Go coverage output
 coverage.out
 coverage.html
+
+# Database exports and restore plans may contain sensitive store data
+*.dump
+*.backup
+*.sql
+*-restore.list
