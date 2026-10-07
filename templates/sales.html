@@ -11,7 +11,7 @@
     <div class="col-lg-4">
         <div class="card card-custom p-4">
             <h5 class="fw-bold mb-3 text-primary"><i class="bi bi-cart-plus-fill me-2"></i>Новий продаж</h5>
-            <form action="/sales/create" method="POST" target="_blank">
+            <form id="saleForm" action="/sales/create" method="POST" target="_blank">
                 <div class="mb-3">
                     <label for="productSearch" class="form-label fw-semibold">Оберіть гаджет</label>
                     <div class="product-picker" id="productPicker">
@@ -19,7 +19,7 @@
                         <input type="search" id="productSearch" class="form-control" placeholder="Введіть назву або артикул товару..." autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="productOptions" required>
                         <div class="product-options" id="productOptions" role="listbox" hidden>
                             {{range .Products}}
-                            <button type="button" class="product-option{{if le .Quantity 0}} product-option-unavailable{{end}}" role="option" data-product-id="{{.ID}}" data-value="{{.Title}}" data-search="{{.Title}} {{.SKU}}">
+                            <button type="button" class="product-option{{if le .Quantity 0}} product-option-unavailable{{end}}" role="option" data-product-id="{{.ID}}" data-value="{{.Title}}" data-search="{{.Title}} {{.SKU}}" data-warranty-months="{{.WarrantyMonth}}">
                                 {{.Title}} (Доступно: {{.Quantity}} шт | {{formatMoney .SellingPrice}})
                             </button>
                             {{else}}
@@ -28,6 +28,13 @@
                             <div class="product-options-empty" id="noProductMatches" hidden>За запитом товарів не знайдено.</div>
                         </div>
                     </div>
+                </div>
+
+                <div class="mb-3">
+                    <label for="customerPhone" class="form-label fw-semibold">Телефон клієнта <span class="text-muted fw-normal">(необов’язково)</span></label>
+                    <input type="tel" name="customer_phone" id="customerPhone" class="form-control" placeholder="Наприклад, +380 67 123 45 67" autocomplete="tel" inputmode="tel" aria-describedby="customerPhoneHint warrantyNotice">
+                    <div id="warrantyNotice" class="alert alert-warning py-2 px-3 mt-2 mb-2 small" role="status" aria-live="polite" hidden></div>
+                    <div id="customerPhoneHint" class="form-text">Номер допоможе знайти продаж у разі гарантійного звернення. Він не друкується в чеку.</div>
                 </div>
 
                 <div class="mb-4">
@@ -51,7 +58,7 @@
             </div>
             <div class="input-group mb-3 sales-search">
                 <span class="input-group-text bg-white text-muted"><i class="bi bi-search"></i></span>
-                <input type="search" id="salesSearch" class="form-control" placeholder="Пошук за назвою гаджета, датою або номером чека..." aria-label="Пошук продажів за назвою, датою або номером чека" autocomplete="off">
+                <input type="search" id="salesSearch" class="form-control" placeholder="Пошук за назвою, датою, номером чека або телефоном..." aria-label="Пошук продажів за назвою, датою, номером чека або телефоном" autocomplete="off">
             </div>
             <div class="table-responsive">
                 <table class="table table-hover align-middle">
@@ -68,7 +75,7 @@
                     </thead>
                     <tbody>
                         {{range .Sales}}
-                        <tr data-sale-search="{{.ID}} #{{.ID}} {{.ProductTitle}} {{.CreatedAtFormatted}} {{.CreatedAtISO}}">
+                        <tr data-sale-search="{{.ID}} #{{.ID}} {{.ProductTitle}} {{.CreatedAtFormatted}} {{.CreatedAtISO}}" data-sale-phone="{{.CustomerPhone}}">
                             <td><code>#{{.ID}}</code></td>
                             <td class="fw-semibold">{{.ProductTitle}}</td>
                             <td><span class="badge bg-secondary">{{.QuantitySold}} шт</span></td>
@@ -100,20 +107,25 @@
 </style>
 <script>
 (()=>{
- const picker=document.getElementById('productPicker'),input=document.getElementById('productSearch'),idField=document.getElementById('selectedProductId');
- if(picker&&input){const panel=document.getElementById('productOptions'),options=[...panel.querySelectorAll('.product-option')],empty=document.getElementById('noProductMatches');let active=-1;
+ const picker=document.getElementById('productPicker'),input=document.getElementById('productSearch'),idField=document.getElementById('selectedProductId'),options=picker?[...picker.querySelectorAll('.product-option')]:[];
+ if(picker&&input){const panel=document.getElementById('productOptions'),empty=document.getElementById('noProductMatches');let active=-1;
   const visible=()=>options.filter(option=>!option.hidden&&!option.disabled);
   const open=()=>{panel.hidden=false;input.setAttribute('aria-expanded','true')};
   const close=()=>{panel.hidden=true;input.setAttribute('aria-expanded','false');active=-1;options.forEach(option=>option.classList.remove('is-active'))};
   const filter=()=>{const query=input.value.trim().toLocaleLowerCase();idField.value='';input.setCustomValidity('');active=-1;let shown=0;for(const option of options){const matches=option.dataset.search.toLocaleLowerCase().includes(query);option.hidden=!matches;option.disabled=option.classList.contains('product-option-unavailable');if(matches)shown++}if(empty)empty.hidden=shown!==0;open()};
-  const choose=option=>{if(!option||option.disabled)return;input.value=option.dataset.value;idField.value=option.dataset.productId;input.setCustomValidity('');close()};
-  input.addEventListener('focus',()=>{filter()});input.addEventListener('input',filter);
+  const choose=option=>{if(!option||option.disabled)return;input.value=option.dataset.value;idField.value=option.dataset.productId;input.setCustomValidity('');close();updateWarrantyNotice(option)};
+  input.addEventListener('focus',()=>{filter()});input.addEventListener('input',()=>{filter();updateWarrantyNotice(null)});
   input.addEventListener('keydown',event=>{const items=visible();if(event.key==='ArrowDown'||event.key==='ArrowUp'){event.preventDefault();open();if(!items.length)return;const step=event.key==='ArrowDown'?1:-1;active=active<0?(step===1?0:items.length-1):(active+step+items.length)%items.length;options.forEach(option=>option.classList.remove('is-active'));items[active].classList.add('is-active');items[active].scrollIntoView({block:'nearest'})}else if(event.key==='Enter'&&!panel.hidden){const selected=active>=0?items[active]:items.length===1?items[0]:null;if(selected){event.preventDefault();choose(selected)}}else if(event.key==='Escape')close()});
   options.forEach(option=>option.addEventListener('click',()=>choose(option)));
   document.addEventListener('click',event=>{if(!picker.contains(event.target))close()});
   input.form.addEventListener('submit',event=>{if(!idField.value){event.preventDefault();input.setCustomValidity(document.documentElement.lang==='en'?'Choose a product from the list.':'Оберіть товар зі списку.');input.reportValidity()}});
  }
- const salesSearchInput=document.getElementById('salesSearch');if(!salesSearchInput)return;const rows=[...document.querySelectorAll('[data-sale-search]')],count=document.getElementById('salesResultCount'),noMatch=document.getElementById('salesNoMatch');salesSearchInput.addEventListener('input',()=>{const terms=salesSearchInput.value.trim().toLocaleLowerCase().split(/\s+/).filter(Boolean);let shown=0;for(const row of rows){const text=row.dataset.saleSearch.toLocaleLowerCase();const matches=terms.every(term=>text.includes(term));row.hidden=!matches;if(matches)shown++}count.textContent=shown;noMatch.hidden=rows.length===0||terms.length===0||shown!==0})
+  const warrantyNotice=document.getElementById('warrantyNotice'),phoneInput=document.getElementById('customerPhone');
+  const updateWarrantyNotice=option=>{const months=Number(option?.dataset.warrantyMonths||0);if(!warrantyNotice)return;warrantyNotice.hidden=months<=0;warrantyNotice.textContent=months>0?(document.documentElement.lang==='en'?`This product has a ${months}-month warranty. Adding a phone number will make the sale easier to find if the customer contacts the store.`:`На цей товар діє гарантія ${months} міс. Номер допоможе швидко знайти продаж, якщо клієнт звернеться до магазину.`):'';if(phoneInput){phoneInput.classList.toggle('border-warning',months>0&&!phoneInput.value.trim());phoneInput.classList.toggle('bg-warning-subtle',months>0&&!phoneInput.value.trim())}};
+  if(phoneInput){phoneInput.addEventListener('input',()=>updateWarrantyNotice(options.find(option=>option.dataset.productId===idField.value)));}
+  document.addEventListener('gadget-language-changed',()=>updateWarrantyNotice(options.find(option=>option.dataset.productId===idField?.value)));
+  document.getElementById('saleForm')?.addEventListener('submit',event=>{if(!idField?.value)return;setTimeout(()=>{phoneInput.value='';updateWarrantyNotice(options.find(option=>option.dataset.productId===idField.value))},0)});
+  const salesSearchInput=document.getElementById('salesSearch');if(!salesSearchInput)return;const rows=[...document.querySelectorAll('[data-sale-search]')],count=document.getElementById('salesResultCount'),noMatch=document.getElementById('salesNoMatch');salesSearchInput.addEventListener('input',()=>{const raw=salesSearchInput.value.trim().toLocaleLowerCase(),terms=raw.split(/\s+/).filter(Boolean),phoneQuery=raw.replace(/\D/g,'' );let shown=0;for(const row of rows){const text=row.dataset.saleSearch.toLocaleLowerCase(),phoneMatch=phoneQuery.length>=3&&(row.dataset.salePhone||'').includes(phoneQuery),matches=terms.length===0||terms.every(term=>text.includes(term))||phoneMatch;row.hidden=!matches;if(matches)shown++}count.textContent=shown;noMatch.hidden=rows.length===0||terms.length===0||shown!==0})
 })();
 </script>
 {{end}}

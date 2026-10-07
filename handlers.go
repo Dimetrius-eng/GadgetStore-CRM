@@ -62,6 +62,28 @@ func validSaleQuantity(sold, available int) bool {
 	return sold > 0 && available >= sold
 }
 
+func normalizeCustomerPhone(phone string) (string, error) {
+	var digits strings.Builder
+	for _, char := range strings.TrimSpace(phone) {
+		switch {
+		case char >= '0' && char <= '9':
+			digits.WriteRune(char)
+		case char == '+' || char == '-' || char == '(' || char == ')' || char == '.' || char == ' ':
+			// Ignore common formatting characters.
+		default:
+			return "", fmt.Errorf("Введіть номер телефону цифрами та символами +, -, дужками або пробілами")
+		}
+	}
+	normalized := digits.String()
+	if normalized == "" {
+		return "", nil
+	}
+	if len(normalized) < 7 || len(normalized) > 15 {
+		return "", fmt.Errorf("Номер телефону має містити від 7 до 15 цифр")
+	}
+	return normalized, nil
+}
+
 var funcMap = template.FuncMap{
 	"formatMoney": formatMoney,
 }
@@ -131,6 +153,7 @@ type Sale struct {
 	ID                 int
 	ProductID          int
 	ProductTitle       string
+	CustomerPhone      string
 	QuantitySold       int
 	UnitPrice          float64
 	TotalPrice         float64
@@ -468,7 +491,7 @@ func ProductDeleteHandler(w http.ResponseWriter, r *http.Request) {
 
 // 6. Сторінка Каси
 func SalesHandler(w http.ResponseWriter, r *http.Request) {
-	prodRows, err := DB.Query(`SELECT id, title, sku, selling_price, quantity FROM products ORDER BY title`)
+	prodRows, err := DB.Query(`SELECT id, title, sku, selling_price, quantity, COALESCE(warranty_months, 0) FROM products ORDER BY title`)
 	if err != nil {
 		http.Error(w, "Не вдалося завантажити товари", http.StatusInternalServerError)
 		return
@@ -478,7 +501,7 @@ func SalesHandler(w http.ResponseWriter, r *http.Request) {
 	var products []Product
 	for prodRows.Next() {
 		var p Product
-		if err := prodRows.Scan(&p.ID, &p.Title, &p.SKU, &p.SellingPrice, &p.Quantity); err != nil {
+		if err := prodRows.Scan(&p.ID, &p.Title, &p.SKU, &p.SellingPrice, &p.Quantity, &p.WarrantyMonth); err != nil {
 			http.Error(w, "Помилка читання товарів", http.StatusInternalServerError)
 			return
 		}
@@ -486,7 +509,7 @@ func SalesHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	salesRows, err := DB.Query(`
-		SELECT s.id, COALESCE(p.title, s.product_title), s.quantity_sold, s.unit_price, s.total_price, s.profit,
+		SELECT s.id, COALESCE(p.title, s.product_title), s.customer_phone, s.quantity_sold, s.unit_price, s.total_price, s.profit,
 			TO_CHAR(s.created_at, 'DD.MM.YYYY HH24:MI'), TO_CHAR(s.created_at, 'YYYY-MM-DD')
 		FROM sales s
 		LEFT JOIN products p ON s.product_id = p.id
@@ -501,7 +524,7 @@ func SalesHandler(w http.ResponseWriter, r *http.Request) {
 	var sales []Sale
 	for salesRows.Next() {
 		var s Sale
-		if err := salesRows.Scan(&s.ID, &s.ProductTitle, &s.QuantitySold, &s.UnitPrice, &s.TotalPrice, &s.Profit, &s.CreatedAtFormatted, &s.CreatedAtISO); err != nil {
+		if err := salesRows.Scan(&s.ID, &s.ProductTitle, &s.CustomerPhone, &s.QuantitySold, &s.UnitPrice, &s.TotalPrice, &s.Profit, &s.CreatedAtFormatted, &s.CreatedAtISO); err != nil {
 			http.Error(w, "Помилка читання історії продажів", http.StatusInternalServerError)
 			return
 		}
@@ -525,6 +548,11 @@ func SaleCreateHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	productID, _ := strconv.Atoi(r.FormValue("product_id"))
+	customerPhone, phoneErr := normalizeCustomerPhone(r.FormValue("customer_phone"))
+	if phoneErr != nil {
+		http.Error(w, phoneErr.Error(), http.StatusBadRequest)
+		return
+	}
 	qtySold, qtyErr := strconv.Atoi(r.FormValue("quantity"))
 	if qtyErr != nil || qtySold <= 0 {
 		http.Error(w, "Кількість має бути більшою за нуль", http.StatusBadRequest)
@@ -552,9 +580,9 @@ func SaleCreateHandler(w http.ResponseWriter, r *http.Request) {
 
 	var saleID int
 	err = tx.QueryRow(`
-		INSERT INTO sales (product_id, product_title, quantity_sold, unit_price, total_price, profit)
-		VALUES ($1, (SELECT title FROM products WHERE id=$1), $2, $3, $4, $5) RETURNING id`,
-		productID, qtySold, sellingPrice, totalPrice, profit).Scan(&saleID)
+		INSERT INTO sales (product_id, product_title, quantity_sold, unit_price, total_price, profit, customer_phone)
+		VALUES ($1, (SELECT title FROM products WHERE id=$1), $2, $3, $4, $5, $6) RETURNING id`,
+		productID, qtySold, sellingPrice, totalPrice, profit, customerPhone).Scan(&saleID)
 
 	if err != nil {
 		tx.Rollback()

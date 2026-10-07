@@ -100,6 +100,7 @@ func InitDB() {
 			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`,
 		`ALTER TABLE sales ALTER COLUMN product_id DROP NOT NULL`,
 		`ALTER TABLE sales ADD COLUMN IF NOT EXISTS product_title VARCHAR(255) NOT NULL DEFAULT ''`,
+		`ALTER TABLE sales ADD COLUMN IF NOT EXISTS customer_phone VARCHAR(32) NOT NULL DEFAULT ''`,
 		`UPDATE sales s SET product_title = p.title FROM products p WHERE s.product_id = p.id AND s.product_title = ''`,
 		`ALTER TABLE sales DROP CONSTRAINT IF EXISTS sales_product_id_fkey`,
 		`ALTER TABLE sales ADD CONSTRAINT sales_product_id_fkey FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE SET NULL`,

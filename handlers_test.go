@@ -68,6 +68,55 @@ func TestValidSaleQuantity(t *testing.T) {
 	}
 }
 
+func TestNormalizeCustomerPhone(t *testing.T) {
+	tests := []struct {
+		name    string
+		input   string
+		want    string
+		wantErr bool
+	}{
+		{"international format", "+380 (67) 123-45-67", "380671234567", false},
+		{"local format", "067 123 45 67", "0671234567", false},
+		{"optional empty", "   ", "", false},
+		{"too short", "12345", "", true},
+		{"too long", "1234567890123456", "", true},
+		{"letters rejected", "067ABC1234567", "", true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := normalizeCustomerPhone(tt.input)
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("normalizeCustomerPhone(%q) error = %v, wantErr %t", tt.input, err, tt.wantErr)
+			}
+			if got != tt.want {
+				t.Errorf("normalizeCustomerPhone(%q) = %q, want %q", tt.input, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestSalesTemplateRendersWarrantyAndPhoneSearchData(t *testing.T) {
+	recorder := httptest.NewRecorder()
+	data := PageContext{
+		CurrentUser: "Менеджер",
+		Role:        "manager",
+		Data: SalesPageData{
+			Products: []Product{{ID: 7, Title: "Test phone", SKU: "TEST-007", Quantity: 2, WarrantyMonth: 24}},
+			Sales:    []Sale{{ID: 11, ProductTitle: "Test phone", CustomerPhone: "380671234567", QuantitySold: 1}},
+		},
+	}
+	renderTemplate(recorder, "sales.html", data)
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("sales template response status = %d, want %d", recorder.Code, http.StatusOK)
+	}
+	body := recorder.Body.String()
+	for _, expected := range []string{`name="customer_phone"`, `data-warranty-months="24"`, `data-sale-phone="380671234567"`, "гарантійного звернення"} {
+		if !strings.Contains(body, expected) {
+			t.Errorf("sales template does not contain %q", expected)
+		}
+	}
+}
+
 func TestVerifyPassword(t *testing.T) {
 	encoded := hashPassword("correct horse battery staple")
 	if !verifyPassword("correct horse battery staple", encoded) {
