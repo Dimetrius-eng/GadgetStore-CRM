@@ -18,6 +18,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode"
 )
 
 // Проста система сесій у пам'яті
@@ -64,24 +65,36 @@ func validSaleQuantity(sold, available int) bool {
 
 func normalizeCustomerPhone(phone string) (string, error) {
 	var digits strings.Builder
+	hasPlus := false
 	for _, char := range strings.TrimSpace(phone) {
 		switch {
 		case char >= '0' && char <= '9':
 			digits.WriteRune(char)
-		case char == '+' || char == '-' || char == '(' || char == ')' || char == '.' || char == ' ':
+		case char == '+':
+			if hasPlus || digits.Len() > 0 {
+				return "", fmt.Errorf("Знак + можна вказати лише один раз на початку номера")
+			}
+			hasPlus = true
+		case unicode.IsSpace(char) || strings.ContainsRune("-–—().", char):
 			// Ignore common formatting characters.
 		default:
 			return "", fmt.Errorf("Введіть номер телефону цифрами та символами +, -, дужками або пробілами")
 		}
 	}
-	normalized := digits.String()
-	if normalized == "" {
+
+	enteredDigits := digits.String()
+	if enteredDigits == "" {
 		return "", nil
 	}
-	if len(normalized) < 7 || len(normalized) > 15 {
-		return "", fmt.Errorf("Номер телефону має містити від 7 до 15 цифр")
+	if strings.HasPrefix(enteredDigits, "380") {
+		enteredDigits = "0" + enteredDigits[3:]
+	} else if hasPlus {
+		return "", fmt.Errorf("Для міжнародного формату українського номера використовуйте код +380")
 	}
-	return normalized, nil
+	if len(enteredDigits) != 10 || enteredDigits[0] != '0' {
+		return "", fmt.Errorf("Номер має містити 10 цифр і починатися з 0 (наприклад, 096 123 45 67) або бути у форматі +380 96 123 45 67")
+	}
+	return enteredDigits, nil
 }
 
 var funcMap = template.FuncMap{

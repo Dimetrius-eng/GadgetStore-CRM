@@ -75,11 +75,15 @@ func TestNormalizeCustomerPhone(t *testing.T) {
 		want    string
 		wantErr bool
 	}{
-		{"international format", "+380 (67) 123-45-67", "380671234567", false},
+		{"international format", "+380 (67) 123-45-67", "0671234567", false},
+		{"international with spaced country code", "+ 38 097 323 24 57", "0973232457", false},
 		{"local format", "067 123 45 67", "0671234567", false},
+		{"international format without plus", "380 96 123 45 67", "0961234567", false},
 		{"optional empty", "   ", "", false},
-		{"too short", "12345", "", true},
-		{"too long", "1234567890123456", "", true},
+		{"too short", "096 123 45", "", true},
+		{"too long", "097 323 245 75", "", true},
+		{"missing Ukrainian prefix", "+1 202 555 0142", "", true},
+		{"plus not at beginning", "096+1234567", "", true},
 		{"letters rejected", "067ABC1234567", "", true},
 	}
 	for _, tt := range tests {
