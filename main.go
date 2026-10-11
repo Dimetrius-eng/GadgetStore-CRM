@@ -13,11 +13,13 @@ func main() {
 	if err := os.MkdirAll("uploads", 0755); err != nil {
 		log.Fatal(err)
 	}
+	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
 	http.Handle("/uploads/", http.StripPrefix("/uploads/", http.FileServer(http.Dir("uploads"))))
 
 	// Публічний маршрут авторизації
 	http.HandleFunc("/login", LoginHandler)
 	http.HandleFunc("/logout", LogoutHandler)
+	http.HandleFunc("/session/activity", AuthMiddleware(SessionActivityHandler))
 
 	// Захищені маршрути (вимагають входу в систему)
 	http.HandleFunc("/", AuthMiddleware(IndexHandler))

@@ -10,6 +10,7 @@ RUN apk add --no-cache ca-certificates && addgroup -S app && adduser -S -G app a
 WORKDIR /app
 COPY --from=build /out/gadget-store ./gadget-store
 COPY templates ./templates
+COPY static ./static
 # Preserve bundled product photos on the initial deployment. New production
 # uploads are stored in Supabase Storage because the container filesystem is ephemeral.
 COPY uploads ./uploads

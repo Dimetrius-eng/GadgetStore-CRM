@@ -23,9 +23,18 @@ import (
 
 // Проста система сесій у пам'яті
 var (
-	userSessions = make(map[string]User) // session_token -> authenticated user
+	userSessions = make(map[string]userSession) // session_token -> authenticated session
 	sessionsLock sync.Mutex
 )
+
+const sessionIdleTimeout = 20 * time.Minute
+const sessionAbsoluteTimeout = 12 * time.Hour
+
+type userSession struct {
+	User         User
+	CreatedAt    time.Time
+	LastActivity time.Time
+}
 
 // Форматування грошових сум (наприклад, 1137459.50 -> "1 137 459.50 ₴")
 func formatMoney(val float64) string {
@@ -218,7 +227,7 @@ func currentUser(r *http.Request) User {
 	if cookie, err := r.Cookie("session_token"); err == nil {
 		sessionsLock.Lock()
 		defer sessionsLock.Unlock()
-		return userSessions[cookie.Value]
+		return userSessions[cookie.Value].User
 	}
 	return User{}
 }
@@ -232,8 +241,16 @@ func AuthMiddleware(next http.HandlerFunc) http.HandlerFunc {
 			return
 		}
 
+		now := time.Now()
 		sessionsLock.Lock()
-		_, exists := userSessions[cookie.Value]
+		session, exists := userSessions[cookie.Value]
+		if exists && (now.Sub(session.LastActivity) >= sessionIdleTimeout || now.Sub(session.CreatedAt) >= sessionAbsoluteTimeout) {
+			delete(userSessions, cookie.Value)
+			exists = false
+		} else if exists {
+			session.LastActivity = now
+			userSessions[cookie.Value] = session
+		}
 		sessionsLock.Unlock()
 
 		if !exists {
@@ -250,7 +267,7 @@ func getCurrentUsername(r *http.Request) string {
 	if err == nil && cookie.Value != "" {
 		sessionsLock.Lock()
 		defer sessionsLock.Unlock()
-		return userSessions[cookie.Value].FullName
+		return userSessions[cookie.Value].User.FullName
 	}
 	return "Адміністратор"
 }
@@ -275,8 +292,9 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 			}
 			sessionToken := hex.EncodeToString(tokenBytes)
 
+			now := time.Now()
 			sessionsLock.Lock()
-			userSessions[sessionToken] = user
+			userSessions[sessionToken] = userSession{User: user, CreatedAt: now, LastActivity: now}
 			sessionsLock.Unlock()
 
 			http.SetCookie(w, &http.Cookie{
@@ -302,6 +320,16 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 
 	tmpl, _ := template.ParseFiles("templates/login.html")
 	tmpl.Execute(w, nil)
+}
+
+// SessionActivityHandler keeps an active browser session alive. The middleware
+// rejects expired sessions before this handler can refresh their activity.
+func SessionActivityHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // Вихід із системи

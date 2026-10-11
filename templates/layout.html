@@ -4,7 +4,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#0f172a">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>GadgetStore CRM — Управління Магазином</title>
+    <link rel="icon" type="image/png" sizes="32x32" href="/static/icons/favicon.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/static/icons/apple-touch-icon.png">
+    <link rel="manifest" href="/static/manifest.json">
     <!-- Bootstrap 5 & Icons -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
@@ -175,6 +181,34 @@
 </footer>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+// An idle tab does not keep a session alive. While a person is interacting
+// with the page, refresh the server-side idle timer once per minute.
+(()=>{
+  let lastInteraction = Date.now();
+  let lastRefresh = lastInteraction;
+  const markActive = () => { lastInteraction = Date.now(); };
+  ['pointerdown','pointermove','keydown','input','change','wheel','touchstart','scroll'].forEach(type => {
+    document.addEventListener(type, markActive, {passive:true});
+  });
+  window.setInterval(async () => {
+    const now = Date.now();
+    if (now - lastInteraction > 60_000 || now - lastRefresh < 60_000) return;
+    lastRefresh = now;
+    try {
+      const response = await fetch('/session/activity', {
+        method:'POST', credentials:'same-origin', cache:'no-store',
+        headers:{'X-Requested-With':'XMLHttpRequest'}
+      });
+      if (response.redirected || response.status === 401 || response.status === 403) {
+        window.location.replace('/login');
+      }
+    } catch (error) {
+      // A transient network error should not end the session by itself.
+    }
+  }, 15_000);
+})();
+</script>
 <script>
 const en = {
   'Дашборд':'Dashboard','Товари':'Products','Каса':'Sales','Категорії':'Categories','Бренди':'Brands','Користувачі':'Users','Вийти':'Sign out',
