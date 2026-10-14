@@ -2,6 +2,7 @@
 // The domain root continues to be served by GitHub Pages.
 const APP_PREFIX = "/gadget-store-crm";
 const RENDER_ORIGIN = "https://gadget-store-crm-jj8m.onrender.com";
+const RENDER_HOST = new URL(RENDER_ORIGIN).hostname;
 
 function withAppPrefix(path) {
   if (!path || path.startsWith("//")) return path;
@@ -36,7 +37,9 @@ export default {
     if (location) {
       try {
         const redirect = new URL(location, RENDER_ORIGIN);
-        if (redirect.hostname === new URL(RENDER_ORIGIN).hostname) {
+        // Go may generate an absolute Location using either the Render host or
+        // the public host forwarded by Cloudflare. Rebase both into the app path.
+        if (redirect.hostname === RENDER_HOST || redirect.hostname === incoming.hostname) {
           redirect.pathname = withAppPrefix(redirect.pathname);
           headers.set("Location", `${redirect.pathname}${redirect.search}${redirect.hash}`);
         }
@@ -61,7 +64,7 @@ export default {
     let body = await originResponse.text();
     // Prefix root-relative links, form actions, asset paths, and JS fetch/navigation
     // URLs while leaving external URLs and already-prefixed URLs unchanged.
-    body = body.replace(/(["'])\/(?!\/|gadget-store-crm(?:\/|["']))/g, `$1${APP_PREFIX}/`);
+    body = body.replace(/(["'])\/(?!\/|gadget-store-crm(?:\/|["']))/g, (_match, quote) => `${quote}${APP_PREFIX}/`);
     headers.delete("Content-Length");
     headers.delete("Content-Encoding");
     headers.delete("ETag");
