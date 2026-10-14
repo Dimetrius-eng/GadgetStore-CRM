@@ -20,7 +20,15 @@ export default {
     upstream.pathname = incoming.pathname.slice(APP_PREFIX.length) || "/";
     upstream.search = incoming.search;
 
-    const upstreamRequest = new Request(upstream, request);
+    // Keep redirects visible to the browser so their Location can be rebased
+    // under APP_PREFIX instead of being followed internally at the Render URL.
+    const requestInit = {
+      method: request.method,
+      headers: request.headers,
+      redirect: "manual",
+    };
+    if (request.method !== "GET" && request.method !== "HEAD") requestInit.body = request.body;
+    const upstreamRequest = new Request(upstream, requestInit);
     const originResponse = await fetch(upstreamRequest);
     const headers = new Headers(originResponse.headers);
 
@@ -28,7 +36,7 @@ export default {
     if (location) {
       try {
         const redirect = new URL(location, RENDER_ORIGIN);
-        if (redirect.origin === RENDER_ORIGIN) {
+        if (redirect.hostname === new URL(RENDER_ORIGIN).hostname) {
           redirect.pathname = withAppPrefix(redirect.pathname);
           headers.set("Location", `${redirect.pathname}${redirect.search}${redirect.hash}`);
         }
