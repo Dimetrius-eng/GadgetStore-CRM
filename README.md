@@ -70,9 +70,11 @@ Render Free може присипляти сервіс після простою
 Render прив’язує домен до сервісу за hostname, а не за окремим URL-шляхом. Щоб корінь `dimetrius-eng.tech` і надалі обслуговувався GitHub Pages, а CRM відкривалася на `/gadget-store-crm`, використайте Cloudflare Worker:
 
 1. Створіть Worker у Cloudflare Dashboard і вставте в нього код із `cloudflare-worker.js`.
-2. У налаштуваннях Worker додайте маршрут `dimetrius-eng.tech/gadget-store-crm*` для зони `dimetrius-eng.tech`.
+2. У **Workers & Pages → ваш Worker → Settings → Domains & Routes → Add → Route** додайте маршрут `dimetrius-eng.tech/gadget-store-crm*` для зони `dimetrius-eng.tech`. Не створюйте його в розділі Static Assets.
 3. Переконайтеся, що DNS-запис домену проксійований через Cloudflare (помаранчева хмарка). Не змінюйте GitHub Pages DNS-записи; Worker обробляє лише шлях CRM.
 4. Збережіть Worker і перевірте `https://dimetrius-eng.tech/gadget-store-crm/login`. Інші шляхи, зокрема корінь домену, Worker не перехоплює.
+
+Видаліть широкий маршрут на кшталт `dimetrius-eng.tech/*`, якщо він прив’язаний до CRM Worker: він також перехоплює корінь портфоліо та довільні URL. Якщо широкий маршрут потрібен з іншої причини, версія Worker у цьому репозиторії передає шляхи поза CRM до DNS origin (GitHub Pages). Якщо до Worker підключені Static Assets, вони за замовчуванням перевіряються раніше за Worker; для проксі CRM встановіть Worker-first для `/gadget-store-crm*` або приберіть непотрібну конфігурацію Assets.
 
 Worker проксить сторінки та ресурси до Render, додає префікс до внутрішніх URL і обмежує шлях cookie входу префіксом CRM. Коли зміниться публічна адреса Render, оновіть `RENDER_ORIGIN` у Worker.
 

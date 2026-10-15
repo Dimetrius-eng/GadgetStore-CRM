@@ -14,7 +14,10 @@ export default {
   async fetch(request) {
     const incoming = new URL(request.url);
     if (incoming.pathname !== APP_PREFIX && !incoming.pathname.startsWith(`${APP_PREFIX}/`)) {
-      return new Response("Not found", { status: 404 });
+      // If the route was accidentally configured too broadly (for example,
+      // dimetrius-eng.tech/*), leave the portfolio and its 404 pages at the
+      // DNS origin (GitHub Pages) instead of sending them to the CRM on Render.
+      return fetch(request);
     }
 
     const upstream = new URL(RENDER_ORIGIN);
