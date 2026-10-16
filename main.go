@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 )
 
 func main() {
@@ -47,5 +48,13 @@ func main() {
 
 	port := envOr("PORT", envOr("APP_PORT", "8080"))
 	fmt.Printf("🚀 Веб-сайт запущено! Відкрийте у браузері: http://localhost:%s\n", port)
-	log.Fatal(http.ListenAndServe(":"+port, nil))
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		host := strings.ToLower(r.Host)
+		if host == "gadget-store-crm.tech" || host == "www.gadget-store-crm.tech" {
+			http.Redirect(w, r, "https://dimetrius-eng.tech/", http.StatusMovedPermanently)
+			return
+		}
+		http.DefaultServeMux.ServeHTTP(w, r)
+	})
+	log.Fatal(http.ListenAndServe(":"+port, handler))
 }
