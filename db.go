@@ -127,8 +127,12 @@ func InitDB() {
 			selling_price NUMERIC(10,2) NOT NULL DEFAULT 0,
 			warranty_months INT NOT NULL DEFAULT 12,
 			quantity INT NOT NULL DEFAULT 0,
+			image_data BYTEA,
+			image_content_type VARCHAR(50),
 			UNIQUE(session_token, sku))`,
 		`ALTER TABLE demo_products ADD COLUMN IF NOT EXISTS warranty_months INT NOT NULL DEFAULT 12`,
+		`ALTER TABLE demo_products ADD COLUMN IF NOT EXISTS image_data BYTEA`,
+		`ALTER TABLE demo_products ADD COLUMN IF NOT EXISTS image_content_type VARCHAR(50)`,
 		`CREATE TABLE IF NOT EXISTS demo_categories (
 			id BIGSERIAL PRIMARY KEY, session_token CHAR(64) NOT NULL REFERENCES demo_sessions(token) ON DELETE CASCADE,
 			name VARCHAR(100) NOT NULL, UNIQUE(session_token,name))`,

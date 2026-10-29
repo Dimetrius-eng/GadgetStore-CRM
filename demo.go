@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"html/template"
+	"io"
 	"log"
 	"math"
 	"net/http"
@@ -37,6 +38,8 @@ type DemoProduct struct {
 	Title, SKU, Brand, Category string
 	PurchasePrice, SellingPrice float64
 	Quantity, WarrantyMonth     int
+	ImageContentType            string
+	HasImage                    bool
 }
 
 type DemoCustomer struct {
@@ -250,16 +253,17 @@ func loadDemoPage(token string) (DemoPageData, error) {
 	if err := ensureDemoCatalogLists(token); err != nil {
 		return data, err
 	}
-	rows, err := DB.Query(`SELECT id,title,sku,brand,category,purchase_price,selling_price,quantity,warranty_months FROM demo_products WHERE session_token=$1 ORDER BY id`, token)
+	rows, err := DB.Query(`SELECT id,title,sku,brand,category,purchase_price,selling_price,quantity,warranty_months,COALESCE(image_content_type,'') FROM demo_products WHERE session_token=$1 ORDER BY id`, token)
 	if err != nil {
 		return data, err
 	}
 	for rows.Next() {
 		var p DemoProduct
-		if err := rows.Scan(&p.ID, &p.Title, &p.SKU, &p.Brand, &p.Category, &p.PurchasePrice, &p.SellingPrice, &p.Quantity, &p.WarrantyMonth); err != nil {
+		if err := rows.Scan(&p.ID, &p.Title, &p.SKU, &p.Brand, &p.Category, &p.PurchasePrice, &p.SellingPrice, &p.Quantity, &p.WarrantyMonth, &p.ImageContentType); err != nil {
 			rows.Close()
 			return data, err
 		}
+		p.HasImage = p.ImageContentType != ""
 		data.Products = append(data.Products, p)
 	}
 	if err := rows.Err(); err != nil {
@@ -460,12 +464,17 @@ func DemoProductAddHandler(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	imageData, imageType, err := readDemoProductImage(w, r)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
 	p, err := parseDemoProduct(r)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	if _, err = DB.Exec(`INSERT INTO demo_products(session_token,title,sku,brand,category,purchase_price,selling_price,quantity,warranty_months) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)`, token, p.Title, p.SKU, p.Brand, p.Category, p.PurchasePrice, p.SellingPrice, p.Quantity, p.WarrantyMonth); err != nil {
+	if _, err = DB.Exec(`INSERT INTO demo_products(session_token,title,sku,brand,category,purchase_price,selling_price,quantity,warranty_months,image_data,image_content_type) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`, token, p.Title, p.SKU, p.Brand, p.Category, p.PurchasePrice, p.SellingPrice, p.Quantity, p.WarrantyMonth, nullableDemoImage(imageData), nullableDemoImageType(imageType)); err != nil {
 		http.Error(w, "Не вдалося додати товар. Артикул має бути унікальним.", http.StatusBadRequest)
 		return
 	}
@@ -486,12 +495,22 @@ func DemoProductEditHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Некоректний товар", http.StatusBadRequest)
 		return
 	}
+	imageData, imageType, err := readDemoProductImage(w, r)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
 	p, err := parseDemoProduct(r)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	if _, err = DB.Exec(`UPDATE demo_products SET title=$3,sku=$4,brand=$5,category=$6,purchase_price=$7,selling_price=$8,quantity=$9,warranty_months=$10 WHERE session_token=$1 AND id=$2`, token, id, p.Title, p.SKU, p.Brand, p.Category, p.PurchasePrice, p.SellingPrice, p.Quantity, p.WarrantyMonth); err != nil {
+	removeImage := r.FormValue("remove_image") == "1"
+	imageChanged := len(imageData) > 0 || removeImage
+	if _, err = DB.Exec(`UPDATE demo_products SET title=$3,sku=$4,brand=$5,category=$6,purchase_price=$7,selling_price=$8,quantity=$9,warranty_months=$10,
+		image_data=CASE WHEN $11 THEN $12 ELSE image_data END,
+		image_content_type=CASE WHEN $11 THEN $13 ELSE image_content_type END
+		WHERE session_token=$1 AND id=$2`, token, id, p.Title, p.SKU, p.Brand, p.Category, p.PurchasePrice, p.SellingPrice, p.Quantity, p.WarrantyMonth, imageChanged, nullableDemoImage(imageData), nullableDemoImageType(imageType)); err != nil {
 		http.Error(w, "Не вдалося оновити товар", http.StatusBadRequest)
 		return
 	}
@@ -500,6 +519,96 @@ func DemoProductEditHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	http.Redirect(w, r, "/demo#products", http.StatusSeeOther)
+}
+
+const demoProductImageLimit = 5 << 20
+
+func readDemoProductImage(w http.ResponseWriter, r *http.Request) ([]byte, string, error) {
+	r.Body = http.MaxBytesReader(w, r.Body, demoProductImageLimit+(1<<20))
+	file, _, err := r.FormFile("image")
+	if err != nil {
+		if err == http.ErrMissingFile || err == http.ErrNotMultipart {
+			return nil, "", nil
+		}
+		if _, ok := err.(*http.MaxBytesError); ok {
+			return nil, "", errDemo("Розмір запиту завеликий")
+		}
+		return nil, "", errDemo("Не вдалося прочитати фото")
+	}
+	defer file.Close()
+	if r.MultipartForm != nil {
+		defer r.MultipartForm.RemoveAll()
+	}
+	data, err := io.ReadAll(io.LimitReader(file, demoProductImageLimit+1))
+	if err != nil {
+		return nil, "", errDemo("Не вдалося прочитати фото")
+	}
+	if len(data) == 0 {
+		return nil, "", errDemo("Вибраний файл фото порожній")
+	}
+	if len(data) > demoProductImageLimit {
+		return nil, "", errDemo("Фото має бути не більшим за 5 МБ")
+	}
+	contentType := http.DetectContentType(data)
+	switch contentType {
+	case "image/jpeg", "image/png", "image/webp", "image/gif":
+		return data, contentType, nil
+	default:
+		return nil, "", errDemo("Підтримуються фото JPG, PNG, WEBP або GIF")
+	}
+}
+
+func nullableDemoImage(data []byte) any {
+	if len(data) == 0 {
+		return nil
+	}
+	return data
+}
+
+func nullableDemoImageType(contentType string) any {
+	if contentType == "" {
+		return nil
+	}
+	return contentType
+}
+
+func DemoProductImageHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet && r.Method != http.MethodHead {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	cookie, err := r.Cookie("demo_session")
+	if err != nil || len(cookie.Value) != 64 {
+		http.NotFound(w, r)
+		return
+	}
+	id, err := strconv.ParseInt(r.URL.Query().Get("id"), 10, 64)
+	if err != nil || id < 1 {
+		http.NotFound(w, r)
+		return
+	}
+	var imageData []byte
+	var contentType string
+	err = DB.QueryRow(`SELECT p.image_data,p.image_content_type FROM demo_products p
+		JOIN demo_sessions s ON s.token=p.session_token AND s.expires_at>NOW()
+		WHERE p.session_token=$1 AND p.id=$2 AND p.image_data IS NOT NULL`, cookie.Value, id).Scan(&imageData, &contentType)
+	if err != nil || len(imageData) == 0 {
+		http.NotFound(w, r)
+		return
+	}
+	switch contentType {
+	case "image/jpeg", "image/png", "image/webp", "image/gif":
+	default:
+		http.NotFound(w, r)
+		return
+	}
+	w.Header().Set("Content-Type", contentType)
+	w.Header().Set("Content-Length", strconv.Itoa(len(imageData)))
+	w.Header().Set("Cache-Control", "private, no-store")
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	if r.Method != http.MethodHead {
+		_, _ = w.Write(imageData)
+	}
 }
 
 func DemoProductDeleteHandler(w http.ResponseWriter, r *http.Request) {

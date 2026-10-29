@@ -28,6 +28,7 @@ func main() {
 	http.HandleFunc("/demo/reset", DemoResetHandler)
 	http.HandleFunc("/demo/products/add", DemoProductAddHandler)
 	http.HandleFunc("/demo/products/edit", DemoProductEditHandler)
+	http.HandleFunc("/demo/products/image", DemoProductImageHandler)
 	http.HandleFunc("/demo/products/delete", DemoProductDeleteHandler)
 	http.HandleFunc("/demo/categories/add", DemoCategoryAddHandler)
 	http.HandleFunc("/demo/categories/delete", DemoCategoryDeleteHandler)
