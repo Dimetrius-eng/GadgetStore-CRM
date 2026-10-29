@@ -67,10 +67,6 @@
             color: #ffffff !important;
             background-color: rgba(255, 255, 255, 0.08);
         }
-        .main-navbar .nav-pills .nav-link.active {
-            background-color: rgba(37, 99, 235, 0.22);
-            box-shadow: inset 0 0 0 1px rgba(59, 130, 246, 0.65);
-        }
         .user-badge {
             background-color: rgba(255, 255, 255, 0.06);
             border: 1px solid rgba(255, 255, 255, 0.12);
@@ -213,18 +209,6 @@
 </footer>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-<script>
-(()=>{
-  if (document.body.classList.contains('demo-mode')) return;
-  const current = location.pathname.replace(/\/+$/, '') || '/';
-  document.querySelectorAll('.main-navbar .nav-link[href]').forEach(link => {
-    const target = new URL(link.href, location.origin).pathname.replace(/\/+$/, '') || '/';
-    const active = current === target || (target !== '/' && current.startsWith(target + '/'));
-    link.classList.toggle('active', active);
-    if (active) link.setAttribute('aria-current', 'page');
-  });
-})();
-</script>
 {{if not .DemoMode}}
 <script>
 // An idle tab does not keep a session alive. While a person is interacting
