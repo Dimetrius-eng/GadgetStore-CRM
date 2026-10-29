@@ -1,0 +1,16 @@
+{
+  "name": "gadget-store-crm",
+  "main": "cloudflare-worker.js",
+  "compatibility_date": "2026-10-16",
+  "workers_dev": true,
+  "preview_urls": true,
+  "routes": [
+    {
+      "pattern": "dimetrius-eng.tech/*",
+      "zone_name": "dimetrius-eng.tech"
+    }
+  ],
+  "cache": {
+    "enabled": false
+  }
+}
