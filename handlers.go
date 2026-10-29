@@ -187,6 +187,7 @@ type Sale struct {
 type PageContext struct {
 	CurrentUser string
 	Role        string
+	DemoMode    bool
 	Data        interface{}
 }
 

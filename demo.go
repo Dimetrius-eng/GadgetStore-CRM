@@ -57,15 +57,23 @@ type DemoChartPoint struct {
 }
 
 type DemoPageData struct {
-	Products                               []DemoProduct
-	Customers                              []DemoCustomer
-	Sales                                  []DemoSale
-	Revenue                                float64
-	ProductCount, CustomerCount, SaleCount int
-	Chart                                  []DemoChartPoint
+	Products                                     []DemoProduct
+	Customers                                    []DemoCustomer
+	Sales                                        []DemoSale
+	Revenue                                      float64
+	ProductCount, CustomerCount, SaleCount       int
+	TotalProducts                                int
+	TotalInventoryVal, TotalRevenue, TotalProfit float64
+	LowStockProducts                             []DemoProduct
+	TopSales                                     []DemoTopSaleItem
+	Chart                                        []DemoChartPoint
 }
 
-var demoPageTemplate = template.Must(template.New("demo").Funcs(funcMap).ParseFiles("templates/demo.html"))
+type DemoTopSaleItem struct {
+	Title        string
+	TotalSold    int
+	TotalRevenue float64
+}
 
 func CRMOverviewHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet && r.Method != http.MethodHead {
@@ -94,11 +102,8 @@ func DemoHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Не вдалося завантажити демо-дані", http.StatusInternalServerError)
 		return
 	}
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-store")
-	if err := demoPageTemplate.ExecuteTemplate(w, "demo", data); err != nil {
-		http.Error(w, "Не вдалося відобразити демо", http.StatusInternalServerError)
-	}
+	renderTemplate(w, "demo.html", PageContext{CurrentUser: "Демо-перегляд", Role: "demo", DemoMode: true, Data: data})
 }
 
 func ensureDemoSession(w http.ResponseWriter, r *http.Request) (string, bool) {
@@ -302,6 +307,36 @@ func loadDemoPage(token string) (DemoPageData, error) {
 	}
 	data.ProductCount = len(data.Products)
 	data.CustomerCount = len(data.Customers)
+	data.TotalProducts = data.ProductCount
+	for _, product := range data.Products {
+		data.TotalInventoryVal += product.SellingPrice * float64(product.Quantity)
+		if product.Quantity < 3 {
+			data.LowStockProducts = append(data.LowStockProducts, product)
+		}
+	}
+	data.TotalRevenue = data.Revenue
+	if err := DB.QueryRow(`SELECT COALESCE(SUM(s.total_price-COALESCE(p.purchase_price,0)*s.quantity),0)
+		FROM demo_sales s LEFT JOIN demo_products p ON p.session_token=s.session_token AND p.title=s.product_title
+		WHERE s.session_token=$1`, token).Scan(&data.TotalProfit); err != nil {
+		return data, err
+	}
+	topRows, err := DB.Query(`SELECT product_title,SUM(quantity),SUM(total_price) FROM demo_sales WHERE session_token=$1 GROUP BY product_title ORDER BY SUM(quantity) DESC LIMIT 5`, token)
+	if err != nil {
+		return data, err
+	}
+	for topRows.Next() {
+		var item DemoTopSaleItem
+		if err := topRows.Scan(&item.Title, &item.TotalSold, &item.TotalRevenue); err != nil {
+			topRows.Close()
+			return data, err
+		}
+		data.TopSales = append(data.TopSales, item)
+	}
+	if err := topRows.Err(); err != nil {
+		topRows.Close()
+		return data, err
+	}
+	topRows.Close()
 	return data, nil
 }
 

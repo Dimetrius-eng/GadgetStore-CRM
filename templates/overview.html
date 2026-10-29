@@ -1,32 +1,74 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="uk">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#101b2a">
-  <meta name="description" content="GadgetStore CRM — система обліку товарів та продажів. Перегляньте демо або увійдіть для співробітників.">
-  <link rel="canonical" href="https://dimetrius-eng.tech/gadget-store-crm/overview">
-  <title>GadgetStore CRM — огляд системи</title>
-  <link rel="icon" type="image/png" href="/static/icons/favicon.png">
-  <style>
-    :root{color-scheme:dark;font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;background:#0b1220;color:#f4f7fb}*{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at 80% 12%,#1c3856 0,transparent 34%),#0b1220;min-height:100vh}a{color:inherit;text-decoration:none}.wrap{width:min(1060px,calc(100% - 40px));margin:auto}header{height:78px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #ffffff18}.brand{font-weight:750;letter-spacing:-.03em}.brand b{color:#ffc928}.back{color:#aab8ca;font-size:14px}main{padding:76px 0 88px}.hero{max-width:760px}.eyebrow{color:#ffc928;text-transform:uppercase;letter-spacing:.14em;font-size:12px;font-weight:750}.hero h1{font-size:clamp(40px,7vw,68px);line-height:1.04;letter-spacing:-.055em;margin:20px 0}.hero p{color:#afbdcf;max-width:680px;line-height:1.75;font-size:18px}.actions{display:flex;flex-wrap:wrap;gap:13px;margin-top:31px}.button{min-height:52px;padding:0 21px;border-radius:12px;display:inline-flex;align-items:center;justify-content:center;font-weight:750}.primary{background:#ffc928;color:#101827}.secondary{border:1px solid #ffffff32;background:#ffffff09}.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:15px;margin-top:70px}.card{padding:23px;border:1px solid #ffffff19;border-radius:17px;background:#ffffff08}.icon{color:#ffc928;font-size:22px}.card h2{font-size:17px;margin:16px 0 8px}.card p{color:#9eafc3;font-size:14px;line-height:1.65;margin:0}footer{border-top:1px solid #ffffff18;padding:23px 0;color:#8293a9;font-size:13px}@media(max-width:700px){main{padding:54px 0}.grid{grid-template-columns:1fr;margin-top:42px}.card{padding:19px}.hero p{font-size:16px}header{height:68px}}
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#0f172a">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>GadgetStore CRM</title>
+    <link rel="icon" type="image/png" sizes="32x32" href="/static/icons/favicon.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/static/icons/apple-touch-icon.png">
+    <link rel="manifest" href="/static/manifest.json">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+        }
+        .login-card {
+            width: 100%;
+            max-width: 420px;
+            border-radius: 18px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(12px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+        }
+        .brand-icon-lg {
+            background: linear-gradient(135deg, #2563eb 0%, #d97706 100%);
+            width: 56px;
+            height: 56px;
+            border-radius: 14px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.75rem;
+            color: #fff;
+            box-shadow: 0 4px 15px rgba(37, 99, 235, 0.4);
+        }
+    </style>
 </head>
 <body>
-  <header class="wrap"><a class="brand" href="https://dimetrius-eng.tech/">GadgetStore <b>CRM</b></a><a class="back" href="https://dimetrius-eng.tech/">Dimetrius Engine</a></header>
-  <main class="wrap">
-    <section class="hero">
-      <div class="eyebrow">Облік магазину в одному місці</div>
-      <h1>Більше ясності<br>у щоденній роботі.</h1>
-      <p>GadgetStore CRM допомагає вести каталог техніки, контролювати складські залишки й фіксувати продажі. Ознайомтеся з демо або перейдіть до входу для працівників.</p>
-      <div class="actions"><a class="button primary" href="/demo">Спробувати демо <span aria-hidden="true">→</span></a><a class="button secondary" href="/login">Вхід для співробітників</a></div>
-    </section>
-    <section class="grid" aria-label="Можливості системи">
-      <article class="card"><div class="icon">▦</div><h2>Товари та залишки</h2><p>Каталог пристроїв, ціни, категорії та кількість товару на складі.</p></article>
-      <article class="card"><div class="icon">↗</div><h2>Продажі й аналітика</h2><p>Історія продажів і показники, які допомагають бачити стан магазину.</p></article>
-      <article class="card"><div class="icon">⌕</div><h2>Зрозумілий облік</h2><p>Потрібна інформація про товари й клієнтів зібрана в зручному інтерфейсі.</p></article>
-    </section>
-  </main>
-  <footer><div class="wrap">© 2026 Всі права захищено</div></footer>
+
+<button type="button" id="overviewLanguage" class="btn btn-outline-light btn-sm position-absolute top-0 end-0 m-3">EN</button>
+
+<div class="card login-card text-white p-4">
+    <div class="text-center mb-4">
+        <div class="brand-icon-lg mb-3"><i class="bi bi-cpu-fill"></i></div>
+        <h3 class="fw-bold m-0">GadgetStore CRM</h3>
+    </div>
+
+    <a href="/demo" class="btn btn-outline-light w-100 fw-bold py-2 mb-3">
+        <i class="bi bi-play-circle me-1"></i> Спробувати демо
+    </a>
+    <a href="/login" class="btn btn-warning w-100 fw-bold py-2 shadow-sm">
+        <i class="bi bi-box-arrow-in-right me-1"></i> Вхід для співробітників
+    </a>
+</div>
+
+<script>
+const overviewEN={"Спробувати демо":"Try the demo","Вхід для співробітників":"Employee sign in"};
+function setOverviewLanguage(lang){document.documentElement.lang=lang;localStorage.setItem('gadget-language',lang);document.getElementById('overviewLanguage').textContent=lang==='uk'?'EN':'УК';const walker=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT);while(walker.nextNode()){const n=walker.currentNode,k=n.nodeValue.trim();if(lang==='en'&&overviewEN[k])n.nodeValue=n.nodeValue.replace(k,overviewEN[k]);else if(lang==='uk'){const original=Object.keys(overviewEN).find(x=>overviewEN[x]===k);if(original)n.nodeValue=n.nodeValue.replace(k,original)}}}
+if(localStorage.getItem('gadget-language')==='en')setOverviewLanguage('en');document.getElementById('overviewLanguage').addEventListener('click',()=>setOverviewLanguage(document.documentElement.lang==='uk'?'en':'uk'));
+</script>
+
 </body>
 </html>
