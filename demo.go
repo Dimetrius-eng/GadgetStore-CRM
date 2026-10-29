@@ -8,6 +8,7 @@ import (
 	"log"
 	"math"
 	"net/http"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -67,6 +68,12 @@ type DemoPageData struct {
 	LowStockProducts                             []DemoProduct
 	TopSales                                     []DemoTopSaleItem
 	Chart                                        []DemoChartPoint
+	CategoryNames, BrandNames                    []string
+	DemoUsers                                    []DemoUser
+}
+
+type DemoUser struct {
+	Name, Role, Status string
 }
 
 type DemoTopSaleItem struct {
@@ -307,12 +314,28 @@ func loadDemoPage(token string) (DemoPageData, error) {
 	}
 	data.ProductCount = len(data.Products)
 	data.CustomerCount = len(data.Customers)
+	categories := make(map[string]struct{})
+	brands := make(map[string]struct{})
 	data.TotalProducts = data.ProductCount
 	for _, product := range data.Products {
+		categories[product.Category] = struct{}{}
+		brands[product.Brand] = struct{}{}
 		data.TotalInventoryVal += product.SellingPrice * float64(product.Quantity)
 		if product.Quantity < 3 {
 			data.LowStockProducts = append(data.LowStockProducts, product)
 		}
+	}
+	for category := range categories {
+		data.CategoryNames = append(data.CategoryNames, category)
+	}
+	for brand := range brands {
+		data.BrandNames = append(data.BrandNames, brand)
+	}
+	sort.Strings(data.CategoryNames)
+	sort.Strings(data.BrandNames)
+	data.DemoUsers = []DemoUser{
+		{Name: "Демо-адміністратор", Role: "Адміністратор", Status: "Активний"},
+		{Name: "Демо-менеджер", Role: "Менеджер", Status: "Активний"},
 	}
 	data.TotalRevenue = data.Revenue
 	if err := DB.QueryRow(`SELECT COALESCE(SUM(s.total_price-COALESCE(p.purchase_price,0)*s.quantity),0)
