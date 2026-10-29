@@ -120,11 +120,15 @@
         .product-actions { white-space:nowrap; }
         .product-actions form { display:inline-flex !important; vertical-align:middle; }
         .product-actions a,.product-actions button { vertical-align:middle; }
-        .demo-mode { height:100vh; overflow:hidden; }
-        .demo-mode .content-wrapper { flex:1 1 0; min-height:0; overflow:hidden; padding-top:1rem; padding-bottom:1rem; }
-        .demo-mode .content-wrapper > .container-fluid { height:100%; min-height:0; }
-        .demo-tab-panel { height:100%; min-height:0; overflow:auto; }
+        .demo-mode { min-height:100vh; overflow-x:hidden; }
+        .demo-mode .content-wrapper { flex:1 0 auto; min-height:0; overflow:visible; padding-top:1rem; padding-bottom:1rem; }
+        .demo-mode .content-wrapper > .container-fluid { height:auto; min-height:0; }
+        .demo-tab-panel { height:auto; min-height:0; overflow:visible; }
         .demo-tab-panel[hidden] { display:none !important; }
+        .demo-tab-panel[data-demo-panel="dashboard"] .table-responsive { overflow-x:visible; }
+        .demo-tab-panel[data-demo-panel="dashboard"] .dashboard-table { width:100% !important; min-width:0 !important; table-layout:fixed; }
+        .demo-tab-panel[data-demo-panel="dashboard"] .dashboard-table th,
+        .demo-tab-panel[data-demo-panel="dashboard"] .dashboard-table td { white-space:normal; overflow-wrap:anywhere; }
         @media(max-width:767.98px) { .content-wrapper{padding:1.25rem 0}.main-navbar .container-fluid{padding-left:1rem!important;padding-right:1rem!important}.main-navbar .d-flex.flex-wrap{gap:.65rem}.main-navbar .nav{width:100%;overflow-x:auto;flex-wrap:nowrap;order:3}.main-navbar .nav-link{white-space:nowrap;padding:.45rem .65rem!important;font-size:.88rem}.main-navbar .d-flex.align-items-center.ms-auto{margin-left:auto!important}.card-custom{padding:1rem!important}.content-wrapper h2{font-size:1.4rem}.product-thumb{width:42px;height:42px}.dashboard-table{font-size:.82rem}.dashboard-table th,.dashboard-table td{padding:.35rem .25rem} }
     </style>
 </head>
@@ -325,6 +329,24 @@ function translatePage(language) {
 const savedLanguage = localStorage.getItem('gadget-language') || 'uk';
 translatePage(savedLanguage);
 document.getElementById('languageToggle').addEventListener('click', () => translatePage(document.documentElement.lang === 'uk' ? 'en' : 'uk'));
+</script>
+<script>
+(()=>{
+  const compactQuery=window.matchMedia('(max-width: 575.98px)');
+  const placeholders={
+    uk:{full:'Пошук за назвою, датою, номером чека або телефоном...',compact:'Пошук: товар, дата, чек або телефон'},
+    en:{full:'Search by product, date, receipt number, or phone...',compact:'Search: item, date, receipt, phone'}
+  };
+  const update=()=>{
+    const language=document.documentElement.lang==='en'?'en':'uk';
+    const text=compactQuery.matches?placeholders[language].compact:placeholders[language].full;
+    document.querySelectorAll('#salesSearch,#demoSalesSearch').forEach(input=>input.placeholder=text);
+  };
+  compactQuery.addEventListener?.('change',update);
+  window.addEventListener('resize',update,{passive:true});
+  document.addEventListener('gadget-language-changed',update);
+  update();
+})();
 </script>
 </body>
 </html>
