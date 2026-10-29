@@ -51,7 +51,7 @@ type DemoSale struct {
 	ID                                    int64
 	ProductTitle, CustomerName, CreatedAt string
 	Quantity                              int
-	TotalPrice                            float64
+	TotalPrice, Profit                    float64
 }
 
 type DemoNamedEntity struct {
@@ -288,18 +288,21 @@ func loadDemoPage(token string) (DemoPageData, error) {
 		return data, err
 	}
 	rows.Close()
-	rows, err = DB.Query(`SELECT id,product_title,customer_name,quantity,total_price,created_at FROM demo_sales WHERE session_token=$1 ORDER BY created_at DESC,id DESC LIMIT 20`, token)
+	rows, err = DB.Query(`SELECT s.id,s.product_title,s.customer_name,s.quantity,s.total_price,
+		COALESCE(s.total_price-COALESCE(p.purchase_price,0)*s.quantity,0),s.created_at
+		FROM demo_sales s LEFT JOIN demo_products p ON p.session_token=s.session_token AND p.title=s.product_title
+		WHERE s.session_token=$1 ORDER BY s.created_at DESC,s.id DESC LIMIT 20`, token)
 	if err != nil {
 		return data, err
 	}
 	for rows.Next() {
 		var s DemoSale
 		var created time.Time
-		if err := rows.Scan(&s.ID, &s.ProductTitle, &s.CustomerName, &s.Quantity, &s.TotalPrice, &created); err != nil {
+		if err := rows.Scan(&s.ID, &s.ProductTitle, &s.CustomerName, &s.Quantity, &s.TotalPrice, &s.Profit, &created); err != nil {
 			rows.Close()
 			return data, err
 		}
-		s.CreatedAt = created.Format("02.01.2006")
+		s.CreatedAt = created.Format("02.01.2006 15:04")
 		data.Sales = append(data.Sales, s)
 	}
 	if err := rows.Err(); err != nil {
@@ -817,10 +820,14 @@ func DemoSaleCreateHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	productID, e1 := strconv.ParseInt(r.FormValue("product_id"), 10, 64)
-	customerID, e2 := strconv.ParseInt(r.FormValue("customer_id"), 10, 64)
 	quantity, e3 := strconv.Atoi(r.FormValue("quantity"))
-	if e1 != nil || e2 != nil || e3 != nil || productID < 1 || customerID < 1 || quantity < 1 || quantity > 100 {
-		http.Error(w, "Перевірте товар, клієнта та кількість", http.StatusBadRequest)
+	customerPhone, phoneErr := normalizeCustomerPhone(r.FormValue("customer_phone"))
+	if e1 != nil || e3 != nil || productID < 1 || quantity < 1 || quantity > 100 {
+		http.Error(w, "Перевірте товар і кількість", http.StatusBadRequest)
+		return
+	}
+	if phoneErr != nil {
+		http.Error(w, phoneErr.Error(), http.StatusBadRequest)
 		return
 	}
 	tx, err := DB.Begin()
@@ -836,10 +843,7 @@ func DemoSaleCreateHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Товар не знайдено в цьому демо", http.StatusBadRequest)
 		return
 	}
-	if err = tx.QueryRow(`SELECT name FROM demo_customers WHERE session_token=$1 AND id=$2`, token, customerID).Scan(&customer); err != nil {
-		http.Error(w, "Клієнта не знайдено в цьому демо", http.StatusBadRequest)
-		return
-	}
+	customer = customerPhone
 	result, err := tx.Exec(`UPDATE demo_products SET quantity=quantity-$3 WHERE session_token=$1 AND id=$2 AND quantity >= $3`, token, productID, quantity)
 	if err != nil {
 		http.Error(w, "Не вдалося оновити залишок", http.StatusInternalServerError)
@@ -860,4 +864,38 @@ func DemoSaleCreateHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	http.Redirect(w, r, "/demo#sales", http.StatusSeeOther)
+}
+
+func DemoSaleReceiptHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	token, ok := ensureDemoSession(w, r)
+	if !ok {
+		http.Error(w, "Не вдалося відкрити демо-сесію", http.StatusInternalServerError)
+		return
+	}
+	id, err := strconv.ParseInt(r.URL.Query().Get("id"), 10, 64)
+	if err != nil || id < 1 {
+		http.NotFound(w, r)
+		return
+	}
+	var sale Sale
+	err = DB.QueryRow(`SELECT s.id,s.product_title,s.quantity,s.unit_price,s.total_price,
+		COALESCE(s.total_price-COALESCE(p.purchase_price,0)*s.quantity,0),TO_CHAR(s.created_at,'DD.MM.YYYY HH24:MI')
+		FROM demo_sales s LEFT JOIN demo_products p ON p.session_token=s.session_token AND p.title=s.product_title
+		WHERE s.session_token=$1 AND s.id=$2`, token, id).Scan(&sale.ID, &sale.ProductTitle, &sale.QuantitySold, &sale.UnitPrice, &sale.TotalPrice, &sale.Profit, &sale.CreatedAtFormatted)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	tmpl, err := template.New("receipt.html").Funcs(funcMap).ParseFiles("templates/receipt.html")
+	if err != nil {
+		http.Error(w, "Не вдалося сформувати демо-чек", http.StatusInternalServerError)
+		return
+	}
+	if err := tmpl.Execute(w, sale); err != nil {
+		log.Printf("Could not render demo receipt: %v", err)
+	}
 }

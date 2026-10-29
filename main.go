@@ -40,6 +40,7 @@ func main() {
 	http.HandleFunc("/demo/customers/edit", DemoCustomerEditHandler)
 	http.HandleFunc("/demo/customers/delete", DemoCustomerDeleteHandler)
 	http.HandleFunc("/demo/sales/create", DemoSaleCreateHandler)
+	http.HandleFunc("/demo/sales/receipt", DemoSaleReceiptHandler)
 	http.HandleFunc("/session/activity", AuthMiddleware(SessionActivityHandler))
 
 	// Захищені маршрути (вимагають входу в систему)
