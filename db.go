@@ -125,8 +125,20 @@ func InitDB() {
 			category VARCHAR(100) NOT NULL,
 			purchase_price NUMERIC(10,2) NOT NULL DEFAULT 0,
 			selling_price NUMERIC(10,2) NOT NULL DEFAULT 0,
+			warranty_months INT NOT NULL DEFAULT 12,
 			quantity INT NOT NULL DEFAULT 0,
 			UNIQUE(session_token, sku))`,
+		`ALTER TABLE demo_products ADD COLUMN IF NOT EXISTS warranty_months INT NOT NULL DEFAULT 12`,
+		`CREATE TABLE IF NOT EXISTS demo_categories (
+			id BIGSERIAL PRIMARY KEY, session_token CHAR(64) NOT NULL REFERENCES demo_sessions(token) ON DELETE CASCADE,
+			name VARCHAR(100) NOT NULL, UNIQUE(session_token,name))`,
+		`CREATE TABLE IF NOT EXISTS demo_brands (
+			id BIGSERIAL PRIMARY KEY, session_token CHAR(64) NOT NULL REFERENCES demo_sessions(token) ON DELETE CASCADE,
+			name VARCHAR(100) NOT NULL, UNIQUE(session_token,name))`,
+		`CREATE TABLE IF NOT EXISTS demo_users (
+			id BIGSERIAL PRIMARY KEY, session_token CHAR(64) NOT NULL REFERENCES demo_sessions(token) ON DELETE CASCADE,
+			full_name VARCHAR(100) NOT NULL, username VARCHAR(50) NOT NULL, role VARCHAR(20) NOT NULL DEFAULT 'manager',
+			UNIQUE(session_token,username))`,
 		`CREATE TABLE IF NOT EXISTS demo_customers (
 			id BIGSERIAL PRIMARY KEY,
 			session_token CHAR(64) NOT NULL REFERENCES demo_sessions(token) ON DELETE CASCADE,
@@ -142,6 +154,9 @@ func InitDB() {
 			total_price NUMERIC(10,2) NOT NULL,
 			created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`,
 		`CREATE INDEX IF NOT EXISTS demo_products_session_idx ON demo_products(session_token)`,
+		`CREATE INDEX IF NOT EXISTS demo_categories_session_idx ON demo_categories(session_token)`,
+		`CREATE INDEX IF NOT EXISTS demo_brands_session_idx ON demo_brands(session_token)`,
+		`CREATE INDEX IF NOT EXISTS demo_users_session_idx ON demo_users(session_token)`,
 		`CREATE INDEX IF NOT EXISTS demo_customers_session_idx ON demo_customers(session_token)`,
 		`CREATE INDEX IF NOT EXISTS demo_sales_session_idx ON demo_sales(session_token)`,
 	}

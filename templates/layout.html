@@ -120,10 +120,15 @@
         .product-actions { white-space:nowrap; }
         .product-actions form { display:inline-flex !important; vertical-align:middle; }
         .product-actions a,.product-actions button { vertical-align:middle; }
+        .demo-mode { height:100vh; overflow:hidden; }
+        .demo-mode .content-wrapper { flex:1 1 0; min-height:0; overflow:hidden; padding-top:1rem; padding-bottom:1rem; }
+        .demo-mode .content-wrapper > .container-fluid { height:100%; min-height:0; }
+        .demo-tab-panel { height:100%; min-height:0; overflow:auto; }
+        .demo-tab-panel[hidden] { display:none !important; }
         @media(max-width:767.98px) { .content-wrapper{padding:1.25rem 0}.main-navbar .container-fluid{padding-left:1rem!important;padding-right:1rem!important}.main-navbar .d-flex.flex-wrap{gap:.65rem}.main-navbar .nav{width:100%;overflow-x:auto;flex-wrap:nowrap;order:3}.main-navbar .nav-link{white-space:nowrap;padding:.45rem .65rem!important;font-size:.88rem}.main-navbar .d-flex.align-items-center.ms-auto{margin-left:auto!important}.card-custom{padding:1rem!important}.content-wrapper h2{font-size:1.4rem}.product-thumb{width:42px;height:42px}.dashboard-table{font-size:.82rem}.dashboard-table th,.dashboard-table td{padding:.35rem .25rem} }
     </style>
 </head>
-<body>
+<body class="{{if .DemoMode}}demo-mode{{end}}">
 
 {{if .DemoMode}}
 <div class="alert alert-warning text-center rounded-0 mb-0 py-2 fw-semibold">
@@ -144,12 +149,12 @@
             <!-- Навігація справа -->
             <ul class="nav nav-pills me-auto me-md-0 ms-md-4 my-2 my-md-0">
                 {{if .DemoMode}}
-                <li><a href="#dashboard" class="nav-link"><i class="bi bi-speedometer2 me-1"></i> Дашборд</a></li>
-                <li><a href="#products" class="nav-link"><i class="bi bi-box-seam me-1"></i> Товари</a></li>
-                <li><a href="#sales" class="nav-link"><i class="bi bi-receipt me-1"></i> Каса</a></li>
-                <li><a href="#categories" class="nav-link"><i class="bi bi-tags me-1"></i> Категорії</a></li>
-                <li><a href="#brands" class="nav-link"><i class="bi bi-award me-1"></i> Бренди</a></li>
-                <li><a href="#users" class="nav-link"><i class="bi bi-people me-1"></i> Користувачі</a></li>
+                <li><a href="#dashboard" data-demo-tab="dashboard" class="nav-link active"><i class="bi bi-speedometer2 me-1"></i> Дашборд</a></li>
+                <li><a href="#products" data-demo-tab="products" class="nav-link"><i class="bi bi-box-seam me-1"></i> Товари</a></li>
+                <li><a href="#sales" data-demo-tab="sales" class="nav-link"><i class="bi bi-receipt me-1"></i> Каса</a></li>
+                <li><a href="#categories" data-demo-tab="categories" class="nav-link"><i class="bi bi-tags me-1"></i> Категорії</a></li>
+                <li><a href="#brands" data-demo-tab="brands" class="nav-link"><i class="bi bi-award me-1"></i> Бренди</a></li>
+                <li><a href="#users" data-demo-tab="users" class="nav-link"><i class="bi bi-people me-1"></i> Користувачі</a></li>
                 {{else}}
                 <li><a href="/" class="nav-link"><i class="bi bi-speedometer2 me-1"></i> Дашборд</a></li>
                 <li><a href="/products" class="nav-link"><i class="bi bi-box-seam me-1"></i> Товари</a></li>

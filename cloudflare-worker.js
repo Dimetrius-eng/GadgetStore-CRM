@@ -3,9 +3,104 @@ const APP_PREFIX = "/gadget-store-crm";
 const RENDER_ORIGIN = "https://gadget-store-crm-jj8m.onrender.com";
 const RENDER_HOST = new URL(RENDER_ORIGIN).hostname;
 const PORTFOLIO_PAGE = `<!doctype html>
-<html lang="uk"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#f7f6f2"><meta name="description" content="Dimetrius Engine — персональний сайт і добірка проєктів."><link rel="canonical" href="https://dimetrius-eng.tech/"><title>Dimetrius Engine — розробник і проєкти</title><style>
-:root{font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;color:#202522;background:#f7f6f2}*{box-sizing:border-box}body{margin:0}.wrap{width:min(1060px,calc(100% - 44px));margin:auto}a{color:inherit;text-decoration:none}.top{height:82px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #dedfd9}.brand{font-size:17px;font-weight:760;letter-spacing:-.035em}.top small{color:#72786f;font-size:13px}main{padding:90px 0 105px}.intro{max-width:720px}.kicker{color:#657363;font-size:12px;text-transform:uppercase;letter-spacing:.15em;font-weight:740}.intro h1{font-size:clamp(44px,8vw,82px);line-height:.99;letter-spacing:-.07em;margin:22px 0}.intro h1 span{color:#55705d}.intro p{max-width:610px;color:#646b64;font-size:18px;line-height:1.75;margin:0}.section-head{display:flex;align-items:end;justify-content:space-between;margin:86px 0 18px}.section-head h2{font-size:24px;letter-spacing:-.04em;margin:0}.section-head span{color:#7e847d;font-size:13px}.projects{display:grid;grid-template-columns:repeat(2,1fr);gap:16px}.project{min-height:220px;border:1px solid #dedfd9;border-radius:18px;padding:26px;background:#fff}.project-label{font-size:12px;color:#70796e}.project h3{font-size:23px;letter-spacing:-.04em;margin:24px 0 9px}.project p{max-width:520px;margin:0;color:#646d64;line-height:1.65;font-size:14px}.project a{display:inline-flex;align-items:center;gap:8px;margin-top:22px;font-size:14px;font-weight:700;color:#345442}.project.secondary{display:flex;flex-direction:column;justify-content:center;background:transparent}.project.secondary h3{font-size:18px;margin:10px 0}.project.secondary p{font-size:13px}.contact{display:flex;align-items:center;justify-content:space-between;gap:18px;margin-top:56px;padding-top:22px;border-top:1px solid #dedfd9;color:#687068;font-size:14px}.contact a{text-decoration:underline;text-underline-offset:4px}footer{border-top:1px solid #dedfd9;padding:22px 0;color:#858b83;font-size:12px}@media(max-width:650px){.wrap{width:calc(100% - 32px)}.top{height:70px}main{padding:62px 0 75px}.intro p{font-size:16px}.section-head{margin-top:62px}.projects{grid-template-columns:1fr}.project{min-height:190px;padding:21px}.contact{align-items:flex-start;flex-direction:column}}
-</style></head><body><header class="top wrap"><a class="brand" href="/">Dimetrius Engine</a><small>Портфоліо · проєкти</small></header><main class="wrap"><section class="intro"><div class="kicker">Вітаю на моєму сайті</div><h1>Привіт, я<br><span>Dimetrius Engine.</span></h1><p>Тут я збираю власні проєкти та рішення, над якими працюю. Кожен із них починався з практичної задачі й розвивається крок за кроком.</p></section><section><div class="section-head"><h2>Вибрані проєкти</h2><span>01 / Проєкти</span></div><div class="projects"><article class="project primary"><div class="project-label">Облік та керування магазином</div><h3>GadgetStore CRM</h3><p>Вебсистема для товарного обліку, залишків і продажів у магазині електроніки. Можна переглянути демонстрацію або відкрити сторінку проєкту.</p><a href="/gadget-store-crm/overview">Переглянути проєкт <span aria-hidden="true">↗</span></a></article><article class="project secondary"><div class="project-label">Розділ поповнюється</div><h3>Інші проєкти — згодом</h3><p>Тут з’являться нові роботи та експерименти.</p></article></div></section><section class="contact"><span>Є запитання або пропозиція?</span><a href="mailto:mydimka08@gmail.com">Написати мені · mydimka08@gmail.com</a></section></main><footer><div class="wrap">© 2026 Dimetrius Engine</div></footer></body></html>`;
+<html lang="uk">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0b1220">
+  <meta name="description" content="GadgetStore CRM — система керування обліком мобільних пристроїв та гаджетів.">
+  <link rel="canonical" href="https://dimetrius-eng.tech/">
+  <meta property="og:type" content="website">
+  <meta property="og:locale" content="uk_UA">
+  <meta property="og:title" content="GadgetStore CRM — керуйте магазином легко">
+  <meta property="og:description" content="Зручна система для обліку мобільних пристроїв і гаджетів: товари, залишки та продажі в одному місці.">
+  <meta property="og:url" content="https://dimetrius-eng.tech/">
+  <title>GadgetStore CRM — керуйте магазином легко</title>
+  <style>
+    :root { color-scheme: dark; font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; color: #f4f7fb; background: radial-gradient(ellipse at 78% 13%, #173352 0, transparent 35%), radial-gradient(ellipse at 10% 90%, #17243c 0, transparent 34%), #0b1220; }
+    a { color: inherit; text-decoration: none; }
+    .wrap { width: min(1120px, calc(100% - 40px)); margin: auto; }
+    header { height: 82px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #ffffff16; }
+    .brand { display: flex; align-items: center; gap: 12px; font-weight: 750; letter-spacing: -.02em; }
+    .mark { width: 38px; height: 38px; display: grid; place-items: center; border-radius: 12px; color: #101827; background: #ffc928; box-shadow: 0 0 30px #ffc92838; }
+    .mark svg { width: 21px; height: 21px; }
+    .domain { color: #aab8ca; font-size: 14px; }
+    main { padding: 78px 0 54px; }
+    .hero { display: grid; grid-template-columns: 1.2fr .8fr; gap: 54px; align-items: center; }
+    .eyebrow { display: inline-flex; align-items: center; gap: 9px; padding: 8px 12px; border: 1px solid #ffffff1c; border-radius: 999px; color: #c5d2e3; background: #ffffff08; font-size: 12px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
+    .dot { width: 7px; height: 7px; border-radius: 50%; background: #ffc928; box-shadow: 0 0 12px #ffc928; }
+    h1 { max-width: 680px; margin: 24px 0 18px; font-size: clamp(42px, 6vw, 70px); line-height: 1.03; letter-spacing: -.055em; }
+    h1 span { color: #ffc928; }
+    .lead { max-width: 590px; margin: 0; color: #afbdcf; font-size: clamp(16px, 2vw, 19px); line-height: 1.75; }
+    .actions { display: flex; flex-wrap: wrap; gap: 13px; margin-top: 31px; }
+    .button { min-height: 52px; display: inline-flex; align-items: center; justify-content: center; gap: 10px; padding: 0 20px; border: 1px solid transparent; border-radius: 13px; font-size: 15px; font-weight: 750; transition: transform .18s ease, background .18s ease; }
+    .button:hover { transform: translateY(-2px); }
+    .primary { color: #101827; background: #ffc928; box-shadow: 0 10px 30px #ffc92824; }
+    .primary:hover { background: #ffda58; }
+    .secondary { border-color: #ffffff24; color: #e5ecf5; background: #ffffff08; }
+    .arrow { font-size: 19px; line-height: 1; }
+    .visual { position: relative; min-height: 340px; display: grid; place-items: center; }
+    .orb { position: absolute; width: min(310px, 75vw); aspect-ratio: 1; border: 1px solid #78a6d32a; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #294c75a6, #142238 60%, #101a2a); box-shadow: 0 0 90px #34629225, inset 0 0 50px #ffffff08; }
+    .device { position: relative; width: 220px; padding: 20px; border: 1px solid #ffffff28; border-radius: 24px; background: linear-gradient(145deg, #1b2a40, #111a29); box-shadow: 0 28px 70px #0008; transform: rotate(-5deg); }
+    .device-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 21px; color: #dce6f2; font-size: 12px; font-weight: 700; }
+    .device-icon { width: 33px; height: 33px; display: grid; place-items: center; border-radius: 10px; color: #111827; background: #ffc928; }
+    .device-icon svg { width: 18px; height: 18px; }
+    .stat { margin: 8px 0; padding: 13px; border: 1px solid #ffffff12; border-radius: 13px; background: #ffffff06; }
+    .stat small { color: #93a5ba; font-size: 10px; }
+    .stat strong { display: block; margin-top: 5px; color: #f5f8fc; font-size: 20px; }
+    .bars { display: flex; align-items: end; gap: 6px; height: 40px; margin-top: 12px; }
+    .bars i { flex: 1; border-radius: 4px 4px 2px 2px; background: linear-gradient(#ffc928, #ff9e38); opacity: .9; }
+    .bars i:nth-child(1) { height: 45%; }.bars i:nth-child(2) { height: 70%; }.bars i:nth-child(3) { height: 54%; }.bars i:nth-child(4) { height: 88%; }.bars i:nth-child(5) { height: 66%; }.bars i:nth-child(6) { height: 100%; }
+    .features { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-top: 70px; }
+    .feature { min-height: 145px; padding: 22px; border: 1px solid #ffffff16; border-radius: 17px; background: linear-gradient(145deg, #ffffff0d, #ffffff05); }
+    .feature-icon { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 10px; color: #ffc928; background: #ffc92818; font-size: 17px; }
+    .feature h2 { margin: 15px 0 6px; font-size: 16px; letter-spacing: -.02em; }
+    .feature p { margin: 0; color: #9eafc3; font-size: 13px; line-height: 1.6; }
+    footer { padding: 22px 0 30px; border-top: 1px solid #ffffff16; color: #8293a9; font-size: 12px; }
+    footer .wrap { display: flex; justify-content: space-between; gap: 12px; }
+    @media (max-width: 760px) { .wrap { width: min(100% - 32px, 560px); } header { height: 70px; } .domain { display: none; } main { padding: 52px 0 38px; } .hero { grid-template-columns: 1fr; gap: 24px; } h1 { font-size: clamp(42px, 12vw, 62px); } .visual { min-height: 300px; } .orb { width: 260px; } .device { width: 205px; } .features { grid-template-columns: 1fr; gap: 10px; margin-top: 28px; } .feature { min-height: 0; padding: 18px; } .feature h2 { margin-top: 11px; } footer .wrap { flex-direction: column; } }
+    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; } }
+  </style>
+</head>
+<body>
+  <header class="wrap">
+    <a class="brand" href="/" aria-label="GadgetStore CRM — головна">
+      <span class="mark"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="6" y="3" width="12" height="18" rx="3" stroke="currentColor" stroke-width="2"/><path d="M10 17h4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></span>
+      <span>GadgetStore <span style="color:#ffc928">CRM</span></span>
+    </a>
+    <span class="domain">Dimetrius Engine</span>
+  </header>
+  <main class="wrap">
+    <section class="hero">
+      <div>
+        <div class="eyebrow"><span class="dot"></span> Облік магазину — без зайвих кроків</div>
+        <h1>Ваш магазин.<br><span>Під повним контролем.</span></h1>
+        <p class="lead">Зручна система для обліку мобільних пристроїв і гаджетів: керуйте товарами, залишками та продажами в одному місці.</p>
+        <div class="actions">
+          <a class="button primary" href="/gadget-store-crm/demo">Спробувати демо <span class="arrow">→</span></a>
+          <a class="button secondary" href="/gadget-store-crm/login">Вхід для співробітників <span class="arrow">→</span></a>
+        </div>
+      </div>
+      <div class="visual" aria-hidden="true">
+        <div class="orb"></div>
+        <div class="device">
+          <div class="device-top"><span>Огляд магазину</span><span class="device-icon"><svg viewBox="0 0 24 24" fill="none"><path d="M4 19V5m0 14h17M8 15l4-4 3 2 5-7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span></div>
+          <div class="stat"><small>Продажі під контролем</small><strong>Усе на місці</strong><div class="bars"><i></i><i></i><i></i><i></i><i></i><i></i></div></div>
+          <div class="stat"><small>Товари · Залишки · Гарантії</small><strong>В одному просторі</strong></div>
+        </div>
+      </div>
+    </section>
+    <section class="features" aria-label="Можливості системи">
+      <article class="feature"><div class="feature-icon">▦</div><h2>Облік товарів</h2><p>Каталог гаджетів, ціни, фото та контроль залишків.</p></article>
+      <article class="feature"><div class="feature-icon">↗</div><h2>Продажі й чеки</h2><p>Оформлюйте продажі та швидко знаходьте потрібний чек.</p></article>
+      <article class="feature"><div class="feature-icon">⌕</div><h2>Гарантійний пошук</h2><p>Знаходьте продаж за номером чека, товаром або телефоном клієнта.</p></article>
+    </section>
+  </main>
+  <footer><div class="wrap"><span>GadgetStore CRM — Система обліку товарів та продажів</span><span>© 2026 Всі права захищено</span></div></footer>
+</body>
+</html>`;
 
 export default {
   async fetch(request) {

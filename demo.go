@@ -8,7 +8,6 @@ import (
 	"log"
 	"math"
 	"net/http"
-	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -37,7 +36,7 @@ type DemoProduct struct {
 	ID                          int64
 	Title, SKU, Brand, Category string
 	PurchasePrice, SellingPrice float64
-	Quantity                    int
+	Quantity, WarrantyMonth     int
 }
 
 type DemoCustomer struct {
@@ -46,34 +45,37 @@ type DemoCustomer struct {
 }
 
 type DemoSale struct {
+	ID                                    int64
 	ProductTitle, CustomerName, CreatedAt string
 	Quantity                              int
 	TotalPrice                            float64
 }
 
-type DemoChartPoint struct {
-	Day     string
-	Percent int
-	Revenue float64
+type DemoNamedEntity struct {
+	ID           int64
+	Name         string
+	ProductCount int
 }
 
 type DemoPageData struct {
 	Products                                     []DemoProduct
+	VisibleProducts                              []DemoProduct
 	Customers                                    []DemoCustomer
 	Sales                                        []DemoSale
+	Categories, Brands                           []DemoNamedEntity
+	SearchQuery                                  string
 	Revenue                                      float64
 	ProductCount, CustomerCount, SaleCount       int
 	TotalProducts                                int
 	TotalInventoryVal, TotalRevenue, TotalProfit float64
 	LowStockProducts                             []DemoProduct
 	TopSales                                     []DemoTopSaleItem
-	Chart                                        []DemoChartPoint
-	CategoryNames, BrandNames                    []string
 	DemoUsers                                    []DemoUser
 }
 
 type DemoUser struct {
-	Name, Role, Status string
+	ID                   int64
+	Name, Username, Role string
 }
 
 type DemoTopSaleItem struct {
@@ -108,6 +110,17 @@ func DemoHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		http.Error(w, "Не вдалося завантажити демо-дані", http.StatusInternalServerError)
 		return
+	}
+	data.SearchQuery = strings.TrimSpace(r.URL.Query().Get("search"))
+	if data.SearchQuery != "" {
+		filtered := make([]DemoProduct, 0, len(data.Products))
+		query := strings.ToLower(data.SearchQuery)
+		for _, product := range data.Products {
+			if strings.Contains(strings.ToLower(product.Title), query) || strings.Contains(strings.ToLower(product.SKU), query) {
+				filtered = append(filtered, product)
+			}
+		}
+		data.VisibleProducts = filtered
 	}
 	w.Header().Set("Cache-Control", "no-store")
 	renderTemplate(w, "demo.html", PageContext{CurrentUser: "Демо-перегляд", Role: "demo", DemoMode: true, Data: data})
@@ -158,15 +171,27 @@ func setDemoCookie(w http.ResponseWriter, token string) {
 
 func seedDemoData(tx *sql.Tx, token string) error {
 	products := []DemoProduct{
-		{Title: "iPhone 15 Demo 128GB", SKU: "DEMO-IP15-128", Brand: "Apple", Category: "Смартфони", PurchasePrice: 28500, SellingPrice: 33999, Quantity: 8},
-		{Title: "Samsung Galaxy S24 Demo 256GB", SKU: "DEMO-S24-256", Brand: "Samsung", Category: "Смартфони", PurchasePrice: 31000, SellingPrice: 36999, Quantity: 6},
-		{Title: "AirPods Pro Demo", SKU: "DEMO-APP2", Brand: "Apple", Category: "Навушники", PurchasePrice: 8200, SellingPrice: 10999, Quantity: 3},
-		{Title: "Galaxy Watch 6 Demo", SKU: "DEMO-GW6", Brand: "Samsung", Category: "Смарт-годинники", PurchasePrice: 7400, SellingPrice: 9999, Quantity: 2},
-		{Title: "iPad Air Demo 256GB", SKU: "DEMO-IPADA-256", Brand: "Apple", Category: "Планшети", PurchasePrice: 27000, SellingPrice: 31999, Quantity: 5},
+		{Title: "iPhone 15 Demo 128GB", SKU: "DEMO-IP15-128", Brand: "Apple", Category: "Смартфони", PurchasePrice: 28500, SellingPrice: 33999, Quantity: 8, WarrantyMonth: 12},
+		{Title: "Samsung Galaxy S24 Demo 256GB", SKU: "DEMO-S24-256", Brand: "Samsung", Category: "Смартфони", PurchasePrice: 31000, SellingPrice: 36999, Quantity: 6, WarrantyMonth: 24},
+		{Title: "AirPods Pro Demo", SKU: "DEMO-APP2", Brand: "Apple", Category: "Навушники", PurchasePrice: 8200, SellingPrice: 10999, Quantity: 3, WarrantyMonth: 12},
+		{Title: "Galaxy Watch 6 Demo", SKU: "DEMO-GW6", Brand: "Samsung", Category: "Смарт-годинники", PurchasePrice: 7400, SellingPrice: 9999, Quantity: 2, WarrantyMonth: 12},
+		{Title: "iPad Air Demo 256GB", SKU: "DEMO-IPADA-256", Brand: "Apple", Category: "Планшети", PurchasePrice: 27000, SellingPrice: 31999, Quantity: 5, WarrantyMonth: 12},
 	}
 	for _, p := range products {
-		if _, err := tx.Exec(`INSERT INTO demo_products(session_token,title,sku,brand,category,purchase_price,selling_price,quantity)
-			VALUES($1,$2,$3,$4,$5,$6,$7,$8)`, token, p.Title, p.SKU, p.Brand, p.Category, p.PurchasePrice, p.SellingPrice, p.Quantity); err != nil {
+		if _, err := tx.Exec(`INSERT INTO demo_products(session_token,title,sku,brand,category,purchase_price,selling_price,quantity,warranty_months)
+			VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)`, token, p.Title, p.SKU, p.Brand, p.Category, p.PurchasePrice, p.SellingPrice, p.Quantity, p.WarrantyMonth); err != nil {
+			return err
+		}
+		if _, err := tx.Exec(`INSERT INTO demo_categories(session_token,name) VALUES($1,$2) ON CONFLICT DO NOTHING`, token, p.Category); err != nil {
+			return err
+		}
+		if _, err := tx.Exec(`INSERT INTO demo_brands(session_token,name) VALUES($1,$2) ON CONFLICT DO NOTHING`, token, p.Brand); err != nil {
+			return err
+		}
+	}
+	users := []DemoUser{{Name: "Демо-адміністратор", Username: "demo.admin", Role: "admin"}, {Name: "Демо-менеджер", Username: "demo.manager", Role: "manager"}}
+	for _, user := range users {
+		if _, err := tx.Exec(`INSERT INTO demo_users(session_token,full_name,username,role) VALUES($1,$2,$3,$4)`, token, user.Name, user.Username, user.Role); err != nil {
 			return err
 		}
 	}
@@ -176,7 +201,7 @@ func seedDemoData(tx *sql.Tx, token string) error {
 			return err
 		}
 	}
-	// Sample sales use fictional names and dates so the dashboard and chart look populated.
+	// Sample sales use fictional names and dates so the dashboard looks populated.
 	sales := []struct {
 		product, customer string
 		quantity          int
@@ -206,7 +231,7 @@ func resetDemoData(token string) error {
 		return err
 	}
 	defer tx.Rollback()
-	for _, table := range []string{"demo_sales", "demo_customers", "demo_products"} {
+	for _, table := range []string{"demo_sales", "demo_customers", "demo_products", "demo_categories", "demo_brands", "demo_users"} {
 		if _, err = tx.Exec(`DELETE FROM `+table+` WHERE session_token=$1`, token); err != nil {
 			return err
 		}
@@ -222,13 +247,16 @@ func resetDemoData(token string) error {
 
 func loadDemoPage(token string) (DemoPageData, error) {
 	var data DemoPageData
-	rows, err := DB.Query(`SELECT id,title,sku,brand,category,purchase_price,selling_price,quantity FROM demo_products WHERE session_token=$1 ORDER BY id`, token)
+	if err := ensureDemoCatalogLists(token); err != nil {
+		return data, err
+	}
+	rows, err := DB.Query(`SELECT id,title,sku,brand,category,purchase_price,selling_price,quantity,warranty_months FROM demo_products WHERE session_token=$1 ORDER BY id`, token)
 	if err != nil {
 		return data, err
 	}
 	for rows.Next() {
 		var p DemoProduct
-		if err := rows.Scan(&p.ID, &p.Title, &p.SKU, &p.Brand, &p.Category, &p.PurchasePrice, &p.SellingPrice, &p.Quantity); err != nil {
+		if err := rows.Scan(&p.ID, &p.Title, &p.SKU, &p.Brand, &p.Category, &p.PurchasePrice, &p.SellingPrice, &p.Quantity, &p.WarrantyMonth); err != nil {
 			rows.Close()
 			return data, err
 		}
@@ -256,14 +284,14 @@ func loadDemoPage(token string) (DemoPageData, error) {
 		return data, err
 	}
 	rows.Close()
-	rows, err = DB.Query(`SELECT product_title,customer_name,quantity,total_price,created_at FROM demo_sales WHERE session_token=$1 ORDER BY created_at DESC,id DESC LIMIT 20`, token)
+	rows, err = DB.Query(`SELECT id,product_title,customer_name,quantity,total_price,created_at FROM demo_sales WHERE session_token=$1 ORDER BY created_at DESC,id DESC LIMIT 20`, token)
 	if err != nil {
 		return data, err
 	}
 	for rows.Next() {
 		var s DemoSale
 		var created time.Time
-		if err := rows.Scan(&s.ProductTitle, &s.CustomerName, &s.Quantity, &s.TotalPrice, &created); err != nil {
+		if err := rows.Scan(&s.ID, &s.ProductTitle, &s.CustomerName, &s.Quantity, &s.TotalPrice, &created); err != nil {
 			rows.Close()
 			return data, err
 		}
@@ -278,65 +306,67 @@ func loadDemoPage(token string) (DemoPageData, error) {
 	if err := DB.QueryRow(`SELECT COUNT(*),COALESCE(SUM(total_price),0) FROM demo_sales WHERE session_token=$1`, token).Scan(&data.SaleCount, &data.Revenue); err != nil {
 		return data, err
 	}
-	chartRows, err := DB.Query(`SELECT TO_CHAR(day,'DD Mon'), COALESCE(SUM(s.total_price),0)
-		FROM generate_series(CURRENT_DATE-6,CURRENT_DATE,INTERVAL '1 day') AS day
-		LEFT JOIN demo_sales s ON s.session_token=$1 AND s.created_at::date=day::date
-		GROUP BY day ORDER BY day`, token)
-	if err != nil {
-		return data, err
-	}
-	maxRevenue := 0.0
-	for chartRows.Next() {
-		var point DemoChartPoint
-		if err := chartRows.Scan(&point.Day, &point.Revenue); err != nil {
-			chartRows.Close()
-			return data, err
-		}
-		if point.Revenue > maxRevenue {
-			maxRevenue = point.Revenue
-		}
-		data.Chart = append(data.Chart, point)
-	}
-	if err := chartRows.Err(); err != nil {
-		chartRows.Close()
-		return data, err
-	}
-	chartRows.Close()
-	for i := range data.Chart {
-		if maxRevenue == 0 {
-			data.Chart[i].Percent = 8
-		} else {
-			data.Chart[i].Percent = int(math.Round(data.Chart[i].Revenue / maxRevenue * 100))
-			if data.Chart[i].Percent < 8 {
-				data.Chart[i].Percent = 8
-			}
-		}
-	}
 	data.ProductCount = len(data.Products)
 	data.CustomerCount = len(data.Customers)
-	categories := make(map[string]struct{})
-	brands := make(map[string]struct{})
 	data.TotalProducts = data.ProductCount
 	for _, product := range data.Products {
-		categories[product.Category] = struct{}{}
-		brands[product.Brand] = struct{}{}
+		data.VisibleProducts = append(data.VisibleProducts, product)
 		data.TotalInventoryVal += product.SellingPrice * float64(product.Quantity)
 		if product.Quantity < 3 {
 			data.LowStockProducts = append(data.LowStockProducts, product)
 		}
 	}
-	for category := range categories {
-		data.CategoryNames = append(data.CategoryNames, category)
+	categoryRows, err := DB.Query(`SELECT c.id,c.name,COUNT(p.id) FROM demo_categories c LEFT JOIN demo_products p ON p.session_token=c.session_token AND p.category=c.name WHERE c.session_token=$1 GROUP BY c.id,c.name ORDER BY c.name`, token)
+	if err != nil {
+		return data, err
 	}
-	for brand := range brands {
-		data.BrandNames = append(data.BrandNames, brand)
+	for categoryRows.Next() {
+		var item DemoNamedEntity
+		if err := categoryRows.Scan(&item.ID, &item.Name, &item.ProductCount); err != nil {
+			categoryRows.Close()
+			return data, err
+		}
+		data.Categories = append(data.Categories, item)
 	}
-	sort.Strings(data.CategoryNames)
-	sort.Strings(data.BrandNames)
-	data.DemoUsers = []DemoUser{
-		{Name: "Демо-адміністратор", Role: "Адміністратор", Status: "Активний"},
-		{Name: "Демо-менеджер", Role: "Менеджер", Status: "Активний"},
+	if err := categoryRows.Err(); err != nil {
+		categoryRows.Close()
+		return data, err
 	}
+	categoryRows.Close()
+	brandRows, err := DB.Query(`SELECT b.id,b.name,COUNT(p.id) FROM demo_brands b LEFT JOIN demo_products p ON p.session_token=b.session_token AND p.brand=b.name WHERE b.session_token=$1 GROUP BY b.id,b.name ORDER BY b.name`, token)
+	if err != nil {
+		return data, err
+	}
+	for brandRows.Next() {
+		var item DemoNamedEntity
+		if err := brandRows.Scan(&item.ID, &item.Name, &item.ProductCount); err != nil {
+			brandRows.Close()
+			return data, err
+		}
+		data.Brands = append(data.Brands, item)
+	}
+	if err := brandRows.Err(); err != nil {
+		brandRows.Close()
+		return data, err
+	}
+	brandRows.Close()
+	userRows, err := DB.Query(`SELECT id,full_name,username,role FROM demo_users WHERE session_token=$1 ORDER BY id`, token)
+	if err != nil {
+		return data, err
+	}
+	for userRows.Next() {
+		var user DemoUser
+		if err := userRows.Scan(&user.ID, &user.Name, &user.Username, &user.Role); err != nil {
+			userRows.Close()
+			return data, err
+		}
+		data.DemoUsers = append(data.DemoUsers, user)
+	}
+	if err := userRows.Err(); err != nil {
+		userRows.Close()
+		return data, err
+	}
+	userRows.Close()
 	data.TotalRevenue = data.Revenue
 	if err := DB.QueryRow(`SELECT COALESCE(SUM(s.total_price-COALESCE(p.purchase_price,0)*s.quantity),0)
 		FROM demo_sales s LEFT JOIN demo_products p ON p.session_token=s.session_token AND p.title=s.product_title
@@ -361,6 +391,19 @@ func loadDemoPage(token string) (DemoPageData, error) {
 	}
 	topRows.Close()
 	return data, nil
+}
+
+func ensureDemoCatalogLists(token string) error {
+	if _, err := DB.Exec(`INSERT INTO demo_categories(session_token,name) SELECT DISTINCT session_token,category FROM demo_products WHERE session_token=$1 ON CONFLICT DO NOTHING`, token); err != nil {
+		return err
+	}
+	if _, err := DB.Exec(`INSERT INTO demo_brands(session_token,name) SELECT DISTINCT session_token,brand FROM demo_products WHERE session_token=$1 ON CONFLICT DO NOTHING`, token); err != nil {
+		return err
+	}
+	_, err := DB.Exec(`INSERT INTO demo_users(session_token,full_name,username,role)
+		SELECT $1,'Демо-адміністратор','demo.admin','admin'
+		WHERE NOT EXISTS (SELECT 1 FROM demo_users WHERE session_token=$1)`, token)
+	return err
 }
 
 func demoPost(w http.ResponseWriter, r *http.Request) (string, bool) {
@@ -422,8 +465,12 @@ func DemoProductAddHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	if _, err = DB.Exec(`INSERT INTO demo_products(session_token,title,sku,brand,category,purchase_price,selling_price,quantity) VALUES($1,$2,$3,$4,$5,$6,$7,$8)`, token, p.Title, p.SKU, p.Brand, p.Category, p.PurchasePrice, p.SellingPrice, p.Quantity); err != nil {
+	if _, err = DB.Exec(`INSERT INTO demo_products(session_token,title,sku,brand,category,purchase_price,selling_price,quantity,warranty_months) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)`, token, p.Title, p.SKU, p.Brand, p.Category, p.PurchasePrice, p.SellingPrice, p.Quantity, p.WarrantyMonth); err != nil {
 		http.Error(w, "Не вдалося додати товар. Артикул має бути унікальним.", http.StatusBadRequest)
+		return
+	}
+	if err = ensureDemoProductLabels(token, p); err != nil {
+		http.Error(w, "Не вдалося оновити демонстраційні категорії та бренди", http.StatusInternalServerError)
 		return
 	}
 	http.Redirect(w, r, "/demo#products", http.StatusSeeOther)
@@ -444,8 +491,12 @@ func DemoProductEditHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	if _, err = DB.Exec(`UPDATE demo_products SET title=$3,sku=$4,brand=$5,category=$6,purchase_price=$7,selling_price=$8,quantity=$9 WHERE session_token=$1 AND id=$2`, token, id, p.Title, p.SKU, p.Brand, p.Category, p.PurchasePrice, p.SellingPrice, p.Quantity); err != nil {
+	if _, err = DB.Exec(`UPDATE demo_products SET title=$3,sku=$4,brand=$5,category=$6,purchase_price=$7,selling_price=$8,quantity=$9,warranty_months=$10 WHERE session_token=$1 AND id=$2`, token, id, p.Title, p.SKU, p.Brand, p.Category, p.PurchasePrice, p.SellingPrice, p.Quantity, p.WarrantyMonth); err != nil {
 		http.Error(w, "Не вдалося оновити товар", http.StatusBadRequest)
+		return
+	}
+	if err = ensureDemoProductLabels(token, p); err != nil {
+		http.Error(w, "Не вдалося оновити демонстраційні категорії та бренди", http.StatusInternalServerError)
 		return
 	}
 	http.Redirect(w, r, "/demo#products", http.StatusSeeOther)
@@ -469,6 +520,96 @@ func DemoProductDeleteHandler(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/demo#products", http.StatusSeeOther)
 }
 
+func ensureDemoProductLabels(token string, product DemoProduct) error {
+	if _, err := DB.Exec(`INSERT INTO demo_categories(session_token,name) VALUES($1,$2) ON CONFLICT DO NOTHING`, token, product.Category); err != nil {
+		return err
+	}
+	_, err := DB.Exec(`INSERT INTO demo_brands(session_token,name) VALUES($1,$2) ON CONFLICT DO NOTHING`, token, product.Brand)
+	return err
+}
+
+func demoNameAdd(w http.ResponseWriter, r *http.Request, table, tab string) {
+	token, ok := demoPost(w, r)
+	if !ok {
+		return
+	}
+	name := strings.TrimSpace(r.FormValue("name"))
+	if name == "" || len(name) > 100 {
+		http.Error(w, "Перевірте назву", http.StatusBadRequest)
+		return
+	}
+	if _, err := DB.Exec(`INSERT INTO `+table+`(session_token,name) VALUES($1,$2) ON CONFLICT DO NOTHING`, token, name); err != nil {
+		http.Error(w, "Не вдалося зберегти назву", http.StatusInternalServerError)
+		return
+	}
+	http.Redirect(w, r, "/demo#"+tab, http.StatusSeeOther)
+}
+
+func demoNameDelete(w http.ResponseWriter, r *http.Request, table, tab string) {
+	token, ok := demoPost(w, r)
+	if !ok {
+		return
+	}
+	id, err := strconv.ParseInt(r.FormValue("id"), 10, 64)
+	if err != nil || id < 1 {
+		http.Error(w, "Некоректний запис", http.StatusBadRequest)
+		return
+	}
+	if _, err = DB.Exec(`DELETE FROM `+table+` WHERE session_token=$1 AND id=$2`, token, id); err != nil {
+		http.Error(w, "Не вдалося видалити запис", http.StatusInternalServerError)
+		return
+	}
+	http.Redirect(w, r, "/demo#"+tab, http.StatusSeeOther)
+}
+
+func DemoCategoryAddHandler(w http.ResponseWriter, r *http.Request) {
+	demoNameAdd(w, r, "demo_categories", "categories")
+}
+func DemoCategoryDeleteHandler(w http.ResponseWriter, r *http.Request) {
+	demoNameDelete(w, r, "demo_categories", "categories")
+}
+func DemoBrandAddHandler(w http.ResponseWriter, r *http.Request) {
+	demoNameAdd(w, r, "demo_brands", "brands")
+}
+func DemoBrandDeleteHandler(w http.ResponseWriter, r *http.Request) {
+	demoNameDelete(w, r, "demo_brands", "brands")
+}
+
+func DemoUserAddHandler(w http.ResponseWriter, r *http.Request) {
+	token, ok := demoPost(w, r)
+	if !ok {
+		return
+	}
+	name := strings.TrimSpace(r.FormValue("full_name"))
+	username := strings.TrimSpace(r.FormValue("username"))
+	if name == "" || len(name) > 100 || len(username) < 3 || len(username) > 50 {
+		http.Error(w, "Перевірте ім’я та демонстраційний логін", http.StatusBadRequest)
+		return
+	}
+	if _, err := DB.Exec(`INSERT INTO demo_users(session_token,full_name,username,role) VALUES($1,$2,$3,'manager')`, token, name, username); err != nil {
+		http.Error(w, "Не вдалося створити демо-користувача. Логін має бути унікальним.", http.StatusBadRequest)
+		return
+	}
+	http.Redirect(w, r, "/demo#users", http.StatusSeeOther)
+}
+
+func DemoUserDeleteHandler(w http.ResponseWriter, r *http.Request) {
+	token, ok := demoPost(w, r)
+	if !ok {
+		return
+	}
+	id, err := strconv.ParseInt(r.FormValue("id"), 10, 64)
+	if err != nil || id < 1 {
+		http.Error(w, "Некоректний користувач", http.StatusBadRequest)
+		return
+	}
+	if _, err = DB.Exec(`DELETE FROM demo_users WHERE session_token=$1 AND id=$2 AND role<>'admin'`, token, id); err != nil {
+		http.Error(w, "Не вдалося видалити демо-користувача", http.StatusInternalServerError)
+		return
+	}
+	http.Redirect(w, r, "/demo#users", http.StatusSeeOther)
+}
+
 func parseDemoProduct(r *http.Request) (DemoProduct, error) {
 	var p DemoProduct
 	p.Title = strings.TrimSpace(r.FormValue("title"))
@@ -487,6 +628,10 @@ func parseDemoProduct(r *http.Request) (DemoProduct, error) {
 	p.Quantity, err = strconv.Atoi(r.FormValue("quantity"))
 	if err != nil || p.Quantity < 0 {
 		return p, errDemo("Кількість має бути невід’ємним цілим числом")
+	}
+	p.WarrantyMonth, err = strconv.Atoi(r.FormValue("warranty_months"))
+	if err != nil || p.WarrantyMonth < 0 {
+		return p, errDemo("Термін гарантії має бути невід’ємним числом")
 	}
 	if p.Title == "" || p.SKU == "" || p.Brand == "" || p.Category == "" {
 		return p, errDemo("Заповніть назву, артикул, бренд і категорію")
@@ -517,7 +662,7 @@ func DemoCustomerAddHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Не вдалося додати клієнта", http.StatusInternalServerError)
 		return
 	}
-	http.Redirect(w, r, "/demo#customers", http.StatusSeeOther)
+	http.Redirect(w, r, "/demo#sales", http.StatusSeeOther)
 }
 
 func DemoCustomerEditHandler(w http.ResponseWriter, r *http.Request) {
@@ -536,7 +681,7 @@ func DemoCustomerEditHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Не вдалося оновити клієнта", http.StatusInternalServerError)
 		return
 	}
-	http.Redirect(w, r, "/demo#customers", http.StatusSeeOther)
+	http.Redirect(w, r, "/demo#sales", http.StatusSeeOther)
 }
 
 func DemoCustomerDeleteHandler(w http.ResponseWriter, r *http.Request) {
@@ -554,7 +699,7 @@ func DemoCustomerDeleteHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Не вдалося видалити клієнта", http.StatusInternalServerError)
 		return
 	}
-	http.Redirect(w, r, "/demo#customers", http.StatusSeeOther)
+	http.Redirect(w, r, "/demo#sales", http.StatusSeeOther)
 }
 
 func DemoSaleCreateHandler(w http.ResponseWriter, r *http.Request) {
