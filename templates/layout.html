@@ -334,8 +334,8 @@ document.getElementById('languageToggle').addEventListener('click', () => transl
 (()=>{
   const compactQuery=window.matchMedia('(max-width: 575.98px)');
   const placeholders={
-    uk:{full:'Пошук за назвою, датою, номером чека або телефоном...',compact:'Пошук: товар, дата, чек або телефон'},
-    en:{full:'Search by product, date, receipt number, or phone...',compact:'Search: item, date, receipt, phone'}
+      uk:{full:'Пошук за назвою, датою, номером чека або телефоном...',compact:'Пошук чеків'},
+      en:{full:'Search by product, date, receipt number, or phone...',compact:'Search receipts'}
   };
   const update=()=>{
     const language=document.documentElement.lang==='en'?'en':'uk';
