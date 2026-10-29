@@ -11,6 +11,7 @@ import (
 func main() {
 	// Ініціалізація підключення до бази даних PostgreSQL (127.0.0.1:5433)
 	InitDB()
+	startDemoCleanup()
 	if err := os.MkdirAll("uploads", 0755); err != nil {
 		log.Fatal(err)
 	}
@@ -20,6 +21,18 @@ func main() {
 	// Публічний маршрут авторизації
 	http.HandleFunc("/login", LoginHandler)
 	http.HandleFunc("/logout", LogoutHandler)
+	http.HandleFunc("/overview", CRMOverviewHandler)
+	http.HandleFunc("/demo", DemoHandler)
+	http.HandleFunc("/demo/leave", DemoLeaveHandler)
+	http.HandleFunc("/demo/keepalive", DemoKeepaliveHandler)
+	http.HandleFunc("/demo/reset", DemoResetHandler)
+	http.HandleFunc("/demo/products/add", DemoProductAddHandler)
+	http.HandleFunc("/demo/products/edit", DemoProductEditHandler)
+	http.HandleFunc("/demo/products/delete", DemoProductDeleteHandler)
+	http.HandleFunc("/demo/customers/add", DemoCustomerAddHandler)
+	http.HandleFunc("/demo/customers/edit", DemoCustomerEditHandler)
+	http.HandleFunc("/demo/customers/delete", DemoCustomerDeleteHandler)
+	http.HandleFunc("/demo/sales/create", DemoSaleCreateHandler)
 	http.HandleFunc("/session/activity", AuthMiddleware(SessionActivityHandler))
 
 	// Захищені маршрути (вимагають входу в систему)
@@ -51,7 +64,7 @@ func main() {
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		host := strings.ToLower(r.Host)
 		if host == "gadget-store-crm.tech" || host == "www.gadget-store-crm.tech" {
-			http.Redirect(w, r, "https://dimetrius-eng.tech/", http.StatusMovedPermanently)
+			http.Redirect(w, r, "https://dimetrius-eng.tech/gadget-store-crm/overview", http.StatusMovedPermanently)
 			return
 		}
 		http.DefaultServeMux.ServeHTTP(w, r)

@@ -110,6 +110,40 @@ func InitDB() {
 			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`,
 		`ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check`,
 		`ALTER TABLE users ADD CONSTRAINT users_role_check CHECK (role IN ('admin','manager'))`,
+		`CREATE TABLE IF NOT EXISTS demo_sessions (
+			token CHAR(64) PRIMARY KEY,
+			created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+			last_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+			expires_at TIMESTAMPTZ NOT NULL)`,
+		`CREATE INDEX IF NOT EXISTS demo_sessions_expires_at_idx ON demo_sessions(expires_at)`,
+		`CREATE TABLE IF NOT EXISTS demo_products (
+			id BIGSERIAL PRIMARY KEY,
+			session_token CHAR(64) NOT NULL REFERENCES demo_sessions(token) ON DELETE CASCADE,
+			title VARCHAR(255) NOT NULL,
+			sku VARCHAR(100) NOT NULL,
+			brand VARCHAR(100) NOT NULL,
+			category VARCHAR(100) NOT NULL,
+			purchase_price NUMERIC(10,2) NOT NULL DEFAULT 0,
+			selling_price NUMERIC(10,2) NOT NULL DEFAULT 0,
+			quantity INT NOT NULL DEFAULT 0,
+			UNIQUE(session_token, sku))`,
+		`CREATE TABLE IF NOT EXISTS demo_customers (
+			id BIGSERIAL PRIMARY KEY,
+			session_token CHAR(64) NOT NULL REFERENCES demo_sessions(token) ON DELETE CASCADE,
+			name VARCHAR(160) NOT NULL,
+			phone VARCHAR(32) NOT NULL DEFAULT '')`,
+		`CREATE TABLE IF NOT EXISTS demo_sales (
+			id BIGSERIAL PRIMARY KEY,
+			session_token CHAR(64) NOT NULL REFERENCES demo_sessions(token) ON DELETE CASCADE,
+			product_title VARCHAR(255) NOT NULL,
+			customer_name VARCHAR(160) NOT NULL,
+			quantity INT NOT NULL,
+			unit_price NUMERIC(10,2) NOT NULL,
+			total_price NUMERIC(10,2) NOT NULL,
+			created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`,
+		`CREATE INDEX IF NOT EXISTS demo_products_session_idx ON demo_products(session_token)`,
+		`CREATE INDEX IF NOT EXISTS demo_customers_session_idx ON demo_customers(session_token)`,
+		`CREATE INDEX IF NOT EXISTS demo_sales_session_idx ON demo_sales(session_token)`,
 	}
 	for _, statement := range statements {
 		if _, err := DB.Exec(statement); err != nil {
