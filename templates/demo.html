@@ -23,6 +23,7 @@
 </section>
 
 <section class="demo-tab-panel" id="products" data-demo-panel="products" hidden>
+  <div id="demo-products-catalog">
     <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4"><div><h2 class="fw-bold m-0 text-slate-800">Каталог гаджетів</h2><p class="text-muted m-0 small">Управління асортиментом та залишками товарів</p></div><a href="#demoProductAdd" class="btn btn-royal page-header-action" data-bs-toggle="collapse" role="button"><i class="bi bi-plus-circle" aria-hidden="true"></i><span class="page-header-action-label">Додати гаджет</span></a></div>
     <div class="collapse mb-3" id="demoProductAdd"><div class="card card-custom p-4"><h5 class="fw-bold mb-3">Новий демонстраційний товар</h5><form action="/demo/products/add" method="post" class="row g-2"><div class="col-xl-3 col-md-6"><input class="form-control" name="title" placeholder="Назва гаджета" maxlength="255" required></div><div class="col-xl-2 col-md-6"><input class="form-control" name="sku" placeholder="Артикул (SKU)" maxlength="100" required></div><div class="col-xl-2 col-md-6"><input class="form-control" name="category" placeholder="Категорія" maxlength="100" required></div><div class="col-xl-2 col-md-6"><input class="form-control" name="brand" placeholder="Бренд" maxlength="100" required></div><div class="col-xl-1 col-md-4"><input class="form-control" type="number" min="0" step="0.01" name="purchase_price" placeholder="Закупівля" required></div><div class="col-xl-1 col-md-4"><input class="form-control" type="number" min="0" step="0.01" name="selling_price" placeholder="Продаж" required></div><div class="col-xl-1 col-md-4"><input class="form-control" type="number" min="0" name="quantity" placeholder="К-сть" required></div><div class="col-xl-2 col-md-4"><input class="form-control" type="number" min="0" name="warranty_months" placeholder="Гарантія, міс." required></div><div class="col-12"><button class="btn btn-royal"><i class="bi bi-save me-1"></i>Зберегти</button></div></form></div></div>
     <div class="card card-custom p-4"><form method="GET" action="/demo#products" class="row g-2 mb-4"><div class="col-md-10"><div class="input-group"><span class="input-group-text bg-white border-end-0 text-muted"><i class="bi bi-search"></i></span><input type="text" name="search" value="{{.SearchQuery}}" class="form-control border-start-0" placeholder="Пошук за назвою гаджета або артикулом (SKU)..."></div></div><div class="col-md-2"><button type="submit" class="btn btn-secondary w-100"><i class="bi bi-filter me-1"></i> Знайти</button></div></form>
@@ -40,33 +41,46 @@
             <td>{{if lt .Quantity 3}}<span class="badge bg-danger">{{.Quantity}} шт</span>{{else}}<span class="badge bg-success bg-opacity-10 text-success border border-success">{{.Quantity}} шт</span>{{end}}</td>
             <td>{{.WarrantyMonth}} міс.</td>
             <td class="text-end product-actions">
-                <button type="button" class="btn btn-sm btn-outline-primary me-1" data-bs-toggle="modal" data-bs-target="#demo-product-edit-{{.ID}}" aria-label="Редагувати {{.Title}}"><i class="bi bi-pencil-fill"></i></button>
+                <button type="button" class="btn btn-sm btn-outline-primary me-1" data-demo-product-edit data-id="{{.ID}}" data-title="{{.Title}}" data-sku="{{.SKU}}" data-category="{{.Category}}" data-brand="{{.Brand}}" data-purchase-price="{{.PurchasePrice}}" data-selling-price="{{.SellingPrice}}" data-quantity="{{.Quantity}}" data-warranty="{{.WarrantyMonth}}" aria-label="Редагувати {{.Title}}"><i class="bi bi-pencil-fill"></i></button>
                 <form action="/demo/products/delete" method="POST" class="d-inline" onsubmit="return confirm(document.documentElement.lang==='en'?'Delete this product?':'Видалити цей гаджет?');"><input type="hidden" name="id" value="{{.ID}}"><button type="submit" class="btn btn-sm btn-outline-danger" aria-label="Видалити {{.Title}}"><i class="bi bi-trash-fill"></i></button></form>
             </td>
         </tr>
         {{else}}<tr><td colspan="11" class="text-center py-4 text-muted">Товарів не знайдено.</td></tr>{{end}}
         </tbody></table></div>
     </div>
-    {{range .VisibleProducts}}
-    <div class="modal fade" id="demo-product-edit-{{.ID}}" tabindex="-1" aria-labelledby="demo-product-edit-title-{{.ID}}" aria-hidden="true">
-        <div class="modal-dialog modal-lg modal-dialog-centered"><div class="modal-content">
-            <form action="/demo/products/edit" method="post">
-                <div class="modal-header"><h5 class="modal-title fw-bold" id="demo-product-edit-title-{{.ID}}">Редагування гаджета</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Закрити"></button></div>
-                <div class="modal-body"><input type="hidden" name="id" value="{{.ID}}"><div class="row g-3">
-                    <div class="col-md-8"><label class="form-label fw-semibold">Назва гаджета</label><input type="text" name="title" class="form-control" value="{{.Title}}" required></div>
-                    <div class="col-md-4"><label class="form-label fw-semibold">Артикул (SKU)</label><input type="text" name="sku" class="form-control" value="{{.SKU}}" required></div>
-                    <div class="col-md-6"><label class="form-label fw-semibold">Категорія</label><input type="text" name="category" class="form-control" value="{{.Category}}" required></div>
-                    <div class="col-md-6"><label class="form-label fw-semibold">Бренд / Виробник</label><input type="text" name="brand" class="form-control" value="{{.Brand}}" required></div>
-                    <div class="col-md-4"><label class="form-label fw-semibold">Закупівельна ціна (₴)</label><input type="number" min="0" step="0.01" name="purchase_price" class="form-control" value="{{.PurchasePrice}}" required></div>
-                    <div class="col-md-4"><label class="form-label fw-semibold">Роздрібна ціна (₴)</label><input type="number" min="0" step="0.01" name="selling_price" class="form-control" value="{{.SellingPrice}}" required></div>
-                    <div class="col-md-2"><label class="form-label fw-semibold">Кількість</label><input type="number" min="0" name="quantity" class="form-control" value="{{.Quantity}}" required></div>
-                    <div class="col-md-2"><label class="form-label fw-semibold">Гарантія (міс.)</label><input type="number" min="0" name="warranty_months" class="form-control" value="{{.WarrantyMonth}}" required></div>
-                </div></div>
-                <div class="modal-footer"><button type="button" class="btn btn-light" data-bs-dismiss="modal">Скасувати</button><button type="submit" class="btn btn-royal"><i class="bi bi-check2-circle me-1"></i>Зберегти гаджет</button></div>
-            </form>
-        </div></div>
+  </div>
+  <div id="demo-product-edit-screen" hidden>
+    <select class="d-none" aria-hidden="true" tabindex="-1">{{range .Categories}}<option data-demo-category-option value="{{.Name}}">{{.Name}}</option>{{end}}</select>
+    <select class="d-none" aria-hidden="true" tabindex="-1">{{range .Brands}}<option data-demo-brand-option value="{{.Name}}">{{.Name}}</option>{{end}}</select>
+    <div class="d-flex justify-content-between align-items-center mb-4">
+      <div><h2 class="fw-bold m-0 text-slate-800">Редагування гаджета</h2><p class="text-muted m-0 small">Заповніть параметри товару для відображення в каталозі</p></div>
+      <button type="button" class="btn btn-outline-secondary demo-back-to-catalog"><i class="bi bi-arrow-left me-1"></i> Назад до каталогу</button>
     </div>
-    {{end}}
+    <div class="card card-custom p-4">
+      <form action="/demo/products/edit" method="POST">
+        <input type="hidden" name="id" id="demo-edit-id">
+        <div class="mb-4">
+          <label class="form-label fw-semibold">Фото товару</label>
+          <div><span class="product-placeholder" style="width:180px;height:150px;font-size:2.5rem"><i class="bi bi-camera"></i></span></div>
+          <div class="form-text">У демонстраційному каталозі відображається заглушка фото.</div>
+        </div>
+        <div class="row g-3">
+          <div class="col-md-8"><label class="form-label fw-semibold">Назва гаджета</label><input type="text" name="title" id="demo-edit-title" class="form-control" placeholder="Наприклад: iPhone 15 Pro Max 256GB" required></div>
+          <div class="col-md-4"><label class="form-label fw-semibold">Артикул (SKU)</label><input type="text" name="sku" id="demo-edit-sku" class="form-control" placeholder="IPH-15PM-256" required></div>
+          <div class="col-md-6"><label class="form-label fw-semibold">Категорія</label><select name="category" id="demo-edit-category" class="form-select" required></select></div>
+          <div class="col-md-6"><label class="form-label fw-semibold">Бренд / Виробник</label><select name="brand" id="demo-edit-brand" class="form-select" required></select></div>
+          <div class="col-md-4"><label class="form-label fw-semibold">Закупівельна ціна (₴)</label><input type="number" min="0" step="0.01" name="purchase_price" id="demo-edit-purchase" class="form-control" required></div>
+          <div class="col-md-4"><label class="form-label fw-semibold">Роздрібна ціна (₴)</label><input type="number" min="0" step="0.01" name="selling_price" id="demo-edit-selling" class="form-control" required></div>
+          <div class="col-md-2"><label class="form-label fw-semibold">Кількість</label><input type="number" min="0" name="quantity" id="demo-edit-quantity" class="form-control" required></div>
+          <div class="col-md-2"><label class="form-label fw-semibold">Гарантія (міс)</label><input type="number" min="0" name="warranty_months" id="demo-edit-warranty" class="form-control" required></div>
+        </div>
+        <div class="d-flex justify-content-end gap-2 mt-4 pt-3 border-top">
+          <button type="button" class="btn btn-light px-4 demo-back-to-catalog">Скасувати</button>
+          <button type="submit" class="btn btn-royal px-4"><i class="bi bi-check2-circle me-1"></i> Зберегти гаджет</button>
+        </div>
+      </form>
+    </div>
+  </div>
 </section>
 
 <section class="demo-tab-panel" id="sales" data-demo-panel="sales" hidden>
@@ -99,6 +113,11 @@
  const links=[...document.querySelectorAll('[data-demo-tab]')],panels=[...document.querySelectorAll('[data-demo-panel]')];
  const activate=(name,updateHash)=>{if(!panels.some(panel=>panel.dataset.demoPanel===name))name='dashboard';panels.forEach(panel=>panel.hidden=panel.dataset.demoPanel!==name);links.forEach(link=>{const active=link.dataset.demoTab===name;if(active)link.setAttribute('aria-current','page');else link.removeAttribute('aria-current')});if(updateHash)history.replaceState(null,'',location.pathname+location.search+'#'+name)};
  links.forEach(link=>link.addEventListener('click',event=>{event.preventDefault();activate(link.dataset.demoTab,true)}));
+ const catalog=document.getElementById('demo-products-catalog'),editScreen=document.getElementById('demo-product-edit-screen');
+ const editFields={id:'id',title:'title',sku:'sku',purchase:'purchasePrice',selling:'sellingPrice',quantity:'quantity',warranty:'warranty'};
+ const fillSelect=(select,value,sourceSelector)=>{const names=[...document.querySelectorAll(sourceSelector)].map(option=>option.value);if(!names.includes(value))names.unshift(value);select.replaceChildren(...names.map(name=>new Option(name,name,name===value,name===value)))};
+ document.querySelectorAll('[data-demo-product-edit]').forEach(button=>button.addEventListener('click',()=>{const data=button.dataset;for(const [field,key] of Object.entries(editFields)){const input=document.getElementById('demo-edit-'+field);if(input)input.value=data[key]}fillSelect(document.getElementById('demo-edit-category'),data.category,'[data-demo-category-option]');fillSelect(document.getElementById('demo-edit-brand'),data.brand,'[data-demo-brand-option]');catalog.hidden=true;editScreen.hidden=false}));
+ document.querySelectorAll('.demo-back-to-catalog').forEach(button=>button.addEventListener('click',()=>{editScreen.hidden=true;catalog.hidden=false}));
  activate(location.hash.slice(1),false);
  let submitting=false;document.addEventListener('submit',()=>{submitting=true},true);window.addEventListener('pagehide',()=>{if(!submitting)navigator.sendBeacon('/demo/leave',new Blob([], {type:'text/plain'}))});window.setInterval(()=>{fetch('/demo/keepalive',{method:'POST',credentials:'same-origin',cache:'no-store'}).catch(()=>{})},5*60*1000);
 })();
