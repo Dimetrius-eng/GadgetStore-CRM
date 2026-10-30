@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/hex"
+	"log"
 	"net/http"
 	"net/url"
 	"os"
@@ -23,6 +24,11 @@ func securityHeaders(next http.Handler) http.Handler {
 		if expected := os.Getenv("ORIGIN_VERIFY_SECRET"); expected != "" && r.URL.Path != "/healthz" {
 			provided := r.Header.Get("X-Origin-Verify")
 			if subtle.ConstantTimeCompare([]byte(provided), []byte(expected)) != 1 {
+				reason := "header mismatch"
+				if provided == "" {
+					reason = "header missing"
+				}
+				log.Printf("origin verification rejected: %s", reason)
 				http.Error(w, "Forbidden", http.StatusForbidden)
 				return
 			}
