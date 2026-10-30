@@ -4,6 +4,13 @@
   "compatibility_date": "2026-10-16",
   "workers_dev": true,
   "preview_urls": true,
+  "secrets_store_secrets": [
+    {
+      "binding": "ORIGIN_VERIFY_SECRET",
+      "store_id": "88b50367666f46e0aa4323e940a8f995",
+      "secret_name": "ORIGIN_VERIFY_SECRET"
+    }
+  ],
   "routes": [
     {
       "pattern": "dimetrius-eng.tech/*",

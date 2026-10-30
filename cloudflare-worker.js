@@ -51,11 +51,24 @@ export default {
     upstream.pathname = incoming.pathname.slice(APP_PREFIX.length) || "/";
     upstream.search = incoming.search;
 
+    const originVerifyBinding = env.ORIGIN_VERIFY_SECRET;
+    const originVerifySecret = typeof originVerifyBinding === "string"
+      ? originVerifyBinding
+      : originVerifyBinding && typeof originVerifyBinding.get === "function"
+        ? await originVerifyBinding.get()
+        : "";
+    if (!originVerifySecret) {
+      return new Response("Origin verification is not configured", {
+        status: 503,
+        headers: addSecurityHeaders(new Headers({ "Cache-Control": "no-store" })),
+      });
+    }
+
     // Keep redirects visible to the browser so their Location can be rebased
     // under APP_PREFIX instead of being followed internally at the Render URL.
     const requestHeaders = new Headers(request.headers);
     requestHeaders.delete("X-Origin-Verify");
-    if (env.ORIGIN_VERIFY_SECRET) requestHeaders.set("X-Origin-Verify", env.ORIGIN_VERIFY_SECRET);
+    requestHeaders.set("X-Origin-Verify", originVerifySecret);
     const requestInit = {
       method: request.method,
       headers: requestHeaders,
