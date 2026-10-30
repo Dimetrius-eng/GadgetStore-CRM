@@ -28,7 +28,7 @@ func securityHeaders(next http.Handler) http.Handler {
 				if provided == "" {
 					reason = "header missing"
 				}
-				log.Printf("origin verification rejected: %s", reason)
+				log.Printf("origin verification rejected: %s host=%s", reason, r.Host)
 				http.Error(w, "Forbidden", http.StatusForbidden)
 				return
 			}
