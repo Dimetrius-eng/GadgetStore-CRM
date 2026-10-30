@@ -12,6 +12,7 @@
 *.test
 /bin/
 /tmp/
+/.wrangler/
 
 # Go coverage output
 coverage.out

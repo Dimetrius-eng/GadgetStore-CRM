@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"crypto/rand"
+	"database/sql"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -16,25 +17,12 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 	"unicode"
 )
 
-// Проста система сесій у пам'яті
-var (
-	userSessions = make(map[string]userSession) // session_token -> authenticated session
-	sessionsLock sync.Mutex
-)
-
 const sessionIdleTimeout = 20 * time.Minute
 const sessionAbsoluteTimeout = 12 * time.Hour
-
-type userSession struct {
-	User         User
-	CreatedAt    time.Time
-	LastActivity time.Time
-}
 
 // Форматування грошових сум (наприклад, 1137459.50 -> "1 137 459.50 ₴")
 func formatMoney(val float64) string {
@@ -121,7 +109,7 @@ func renderTemplate(w http.ResponseWriter, pageName string, data interface{}) {
 
 	if err != nil {
 		log.Printf("❌ Помилка зчитування шаблонів (%s): %v", pageName, err)
-		http.Error(w, "Помилка шаблонізатора: "+err.Error(), http.StatusInternalServerError)
+		http.Error(w, "Не вдалося відобразити сторінку", http.StatusInternalServerError)
 		return
 	}
 
@@ -132,7 +120,7 @@ func renderTemplate(w http.ResponseWriter, pageName string, data interface{}) {
 
 	if err != nil {
 		log.Printf("❌ Помилка рендерингу сторінки (%s): %v", pageName, err)
-		http.Error(w, "Помилка рендерингу: "+err.Error(), http.StatusInternalServerError)
+		http.Error(w, "Не вдалося відобразити сторінку", http.StatusInternalServerError)
 	}
 }
 
@@ -225,12 +213,21 @@ type DashboardData struct {
 }
 
 func currentUser(r *http.Request) User {
-	if cookie, err := r.Cookie("session_token"); err == nil {
-		sessionsLock.Lock()
-		defer sessionsLock.Unlock()
-		return userSessions[cookie.Value].User
+	cookie, err := r.Cookie("session_token")
+	if err != nil || len(cookie.Value) != 64 {
+		return User{}
 	}
-	return User{}
+	var user User
+	err = DB.QueryRow(`SELECT u.id,u.username,u.full_name,u.role FROM auth_sessions s
+		JOIN users u ON u.id=s.user_id
+		WHERE s.token_hash=$1 AND s.expires_at>NOW()
+		AND s.last_activity>NOW()-($2 * INTERVAL '1 second')
+		AND s.created_at>NOW()-($3 * INTERVAL '1 second')`, sessionTokenHash(cookie.Value), int64(sessionIdleTimeout.Seconds()), int64(sessionAbsoluteTimeout.Seconds())).
+		Scan(&user.ID, &user.Username, &user.FullName, &user.Role)
+	if err != nil {
+		return User{}
+	}
+	return user
 }
 
 // Middleware перевірки авторизації
@@ -242,19 +239,13 @@ func AuthMiddleware(next http.HandlerFunc) http.HandlerFunc {
 			return
 		}
 
-		now := time.Now()
-		sessionsLock.Lock()
-		session, exists := userSessions[cookie.Value]
-		if exists && (now.Sub(session.LastActivity) >= sessionIdleTimeout || now.Sub(session.CreatedAt) >= sessionAbsoluteTimeout) {
-			delete(userSessions, cookie.Value)
-			exists = false
-		} else if exists {
-			session.LastActivity = now
-			userSessions[cookie.Value] = session
-		}
-		sessionsLock.Unlock()
-
-		if !exists {
+		var userID int
+		err = DB.QueryRow(`UPDATE auth_sessions SET last_activity=NOW()
+			WHERE token_hash=$1 AND expires_at>NOW()
+			AND last_activity>NOW()-($2 * INTERVAL '1 second')
+			AND created_at>NOW()-($3 * INTERVAL '1 second')
+			RETURNING user_id`, sessionTokenHash(cookie.Value), int64(sessionIdleTimeout.Seconds()), int64(sessionAbsoluteTimeout.Seconds())).Scan(&userID)
+		if err != nil {
 			http.Redirect(w, r, "/login", http.StatusSeeOther)
 			return
 		}
@@ -264,28 +255,42 @@ func AuthMiddleware(next http.HandlerFunc) http.HandlerFunc {
 }
 
 func getCurrentUsername(r *http.Request) string {
-	cookie, err := r.Cookie("session_token")
-	if err == nil && cookie.Value != "" {
-		sessionsLock.Lock()
-		defer sessionsLock.Unlock()
-		return userSessions[cookie.Value].User.FullName
+	user := currentUser(r)
+	if user.FullName != "" {
+		return user.FullName
 	}
 	return "Адміністратор"
 }
 
 // Вхід у систему
 func LoginHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet && r.Method != http.MethodPost {
+		w.Header().Set("Allow", "GET, POST")
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
 	if r.Method == http.MethodPost {
 		username := strings.TrimSpace(r.FormValue("username"))
-		password := strings.TrimSpace(r.FormValue("password"))
+		password := r.FormValue("password")
 
 		var user User
 		var passwordHash string
 
 		err := DB.QueryRow(`SELECT id, username, password_hash, full_name, role FROM users WHERE LOWER(username) = LOWER($1)`, username).
 			Scan(&user.ID, &user.Username, &passwordHash, &user.FullName, &user.Role)
+		if err != nil && err != sql.ErrNoRows {
+			log.Printf("Could not look up employee account: %v", err)
+			http.Error(w, "Не вдалося перевірити вхід. Спробуйте пізніше.", http.StatusInternalServerError)
+			return
+		}
 
-		if err == nil && verifyPassword(password, passwordHash) {
+		if err == nil && len(password) <= maxPasswordBytes && verifyPassword(password, passwordHash) {
+			if passwordHashNeedsUpgrade(passwordHash) {
+				if _, err := DB.Exec(`UPDATE users SET password_hash=$1 WHERE id=$2`, hashPassword(password), user.ID); err != nil {
+					http.Error(w, "Не вдалося захистити пароль облікового запису", http.StatusInternalServerError)
+					return
+				}
+			}
 			tokenBytes := make([]byte, 32)
 			if _, err := rand.Read(tokenBytes); err != nil {
 				http.Error(w, "Не вдалося створити сесію", http.StatusInternalServerError)
@@ -294,9 +299,11 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 			sessionToken := hex.EncodeToString(tokenBytes)
 
 			now := time.Now()
-			sessionsLock.Lock()
-			userSessions[sessionToken] = userSession{User: user, CreatedAt: now, LastActivity: now}
-			sessionsLock.Unlock()
+			if _, err := DB.Exec(`INSERT INTO auth_sessions(token_hash,user_id,created_at,last_activity,expires_at)
+				VALUES($1,$2,$3,$3,$4)`, sessionTokenHash(sessionToken), user.ID, now, now.Add(sessionAbsoluteTimeout)); err != nil {
+				http.Error(w, "Не вдалося створити сесію", http.StatusInternalServerError)
+				return
+			}
 
 			http.SetCookie(w, &http.Cookie{
 				Name:     "session_token",
@@ -308,12 +315,10 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 				MaxAge:   60 * 60 * 12,
 			})
 
-			log.Printf("✅ Успішний вхід користувача: %s", user.Username)
 			http.Redirect(w, r, "/", http.StatusSeeOther)
 			return
 		}
 
-		log.Printf("⚠️ Невдала спроба входу для користувача: '%s'", username)
 		tmpl, _ := template.ParseFiles("templates/login.html")
 		tmpl.Execute(w, map[string]interface{}{"Error": "Невірний логін або пароль!"})
 		return
@@ -335,11 +340,16 @@ func SessionActivityHandler(w http.ResponseWriter, r *http.Request) {
 
 // Вихід із системи
 func LogoutHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		w.Header().Set("Allow", http.MethodPost)
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
 	cookie, err := r.Cookie("session_token")
 	if err == nil {
-		sessionsLock.Lock()
-		delete(userSessions, cookie.Value)
-		sessionsLock.Unlock()
+		if len(cookie.Value) == 64 {
+			_, _ = DB.Exec(`DELETE FROM auth_sessions WHERE token_hash=$1`, sessionTokenHash(cookie.Value))
+		}
 	}
 
 	http.SetCookie(w, &http.Cookie{
@@ -423,7 +433,7 @@ func ProductsHandler(w http.ResponseWriter, r *http.Request) {
 
 	rows, err := DB.Query(query, "%"+search+"%")
 	if err != nil {
-		http.Error(w, "Помилка БД: "+err.Error(), http.StatusInternalServerError)
+		http.Error(w, "Не вдалося завантажити товари", http.StatusInternalServerError)
 		return
 	}
 	defer rows.Close()
@@ -459,7 +469,7 @@ func ProductAddHandler(w http.ResponseWriter, r *http.Request) {
 			product.Title, product.SKU, product.CategoryID, product.BrandID, product.PurchasePrice, product.SellingPrice, product.Quantity, product.WarrantyMonth, product.ImagePath)
 
 		if err != nil {
-			http.Error(w, "Помилка збереження в БД: "+err.Error(), http.StatusInternalServerError)
+			http.Error(w, "Не вдалося зберегти гаджет", http.StatusInternalServerError)
 			return
 		}
 
@@ -494,7 +504,7 @@ func ProductEditHandler(w http.ResponseWriter, r *http.Request) {
 			product.Title, product.SKU, product.CategoryID, product.BrandID, product.PurchasePrice, product.SellingPrice, product.Quantity, product.WarrantyMonth, product.ImagePath, id)
 
 		if err != nil {
-			http.Error(w, "Не вдалося оновити гаджет: "+err.Error(), http.StatusInternalServerError)
+			http.Error(w, "Не вдалося оновити гаджет", http.StatusInternalServerError)
 			return
 		}
 		if oldImage != product.ImagePath {
@@ -793,11 +803,15 @@ func renderForm(w http.ResponseWriter, r *http.Request, p Product) {
 
 func parseProductForm(w http.ResponseWriter, r *http.Request, existingImage string) (Product, error) {
 	var p Product
+	r.Body = http.MaxBytesReader(w, r.Body, 6<<20)
 	if err := r.ParseMultipartForm(6 << 20); err != nil {
 		return p, fmt.Errorf("Форма завелика або некоректна")
 	}
 	p.Title = strings.TrimSpace(r.FormValue("title"))
 	p.SKU = strings.TrimSpace(r.FormValue("sku"))
+	if len(p.Title) > 255 || len(p.SKU) > 100 {
+		return p, fmt.Errorf("Назва має бути до 255 символів, артикул — до 100")
+	}
 	var err error
 	p.CategoryID, err = strconv.Atoi(r.FormValue("category_id"))
 	if err != nil || p.CategoryID < 0 {
@@ -976,8 +990,8 @@ func UserAddHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	username, fullName, password := strings.TrimSpace(r.FormValue("username")), strings.TrimSpace(r.FormValue("full_name")), r.FormValue("password")
-	if len(username) < 3 || len(username) > 50 || len(password) < 8 || len(fullName) == 0 {
-		http.Error(w, "Вкажіть ім’я, логін від 3 символів та пароль від 8 символів", http.StatusBadRequest)
+	if len(username) < 3 || len(username) > 50 || len(password) < 12 || len(password) > maxPasswordBytes || len(fullName) == 0 || len(fullName) > 100 {
+		http.Error(w, "Вкажіть ім’я до 100 символів, логін від 3 до 50 символів та пароль від 12 символів", http.StatusBadRequest)
 		return
 	}
 	if _, err := DB.Exec(`INSERT INTO users(username,password_hash,full_name,role) VALUES($1,$2,$3,'manager')`, username, hashPassword(password), fullName); err != nil {

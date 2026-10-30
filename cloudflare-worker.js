@@ -4,11 +4,22 @@ const RENDER_ORIGIN = "https://gadget-store-crm-jj8m.onrender.com";
 const RENDER_HOST = new URL(RENDER_ORIGIN).hostname;
 const PORTFOLIO_ORIGIN = "https://dimetrius-portfolio.pages.dev";
 
+function addSecurityHeaders(headers) {
+  headers.set("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
+  headers.set("X-Content-Type-Options", "nosniff");
+  headers.set("X-Frame-Options", "DENY");
+  headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
+  headers.set("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+  headers.set("Cross-Origin-Opener-Policy", "same-origin");
+  return headers;
+}
+
 export default {
-  async fetch(request) {
+  async fetch(request, env) {
     const incoming = new URL(request.url);
     if (incoming.hostname === "gadget-store-crm.tech" || incoming.hostname === "www.gadget-store-crm.tech") {
-      return Response.redirect(`https://dimetrius-eng.tech${APP_PREFIX}/overview${incoming.search}`, 301);
+      const response = Response.redirect(`https://dimetrius-eng.tech${APP_PREFIX}/overview${incoming.search}`, 301);
+      return new Response(null, { status: response.status, headers: addSecurityHeaders(new Headers(response.headers)) });
     }
     if (incoming.pathname === "/robots.txt") {
       return new Response(
@@ -28,7 +39,7 @@ export default {
     }
     if (incoming.pathname !== APP_PREFIX && !incoming.pathname.startsWith(`${APP_PREFIX}/`)) {
       const portfolioResponse = await fetch(`${PORTFOLIO_ORIGIN}/`);
-      const headers = new Headers(portfolioResponse.headers);
+      const headers = addSecurityHeaders(new Headers(portfolioResponse.headers));
       headers.set("Cache-Control", "no-store");
       return new Response(request.method === "HEAD" ? null : portfolioResponse.body, {
         status: portfolioResponse.status,
@@ -42,15 +53,18 @@ export default {
 
     // Keep redirects visible to the browser so their Location can be rebased
     // under APP_PREFIX instead of being followed internally at the Render URL.
+    const requestHeaders = new Headers(request.headers);
+    requestHeaders.delete("X-Origin-Verify");
+    if (env.ORIGIN_VERIFY_SECRET) requestHeaders.set("X-Origin-Verify", env.ORIGIN_VERIFY_SECRET);
     const requestInit = {
       method: request.method,
-      headers: request.headers,
+      headers: requestHeaders,
       redirect: "manual",
     };
     if (request.method !== "GET" && request.method !== "HEAD") requestInit.body = request.body;
     const upstreamRequest = new Request(upstream, requestInit);
     const originResponse = await fetch(upstreamRequest);
-    const headers = new Headers(originResponse.headers);
+    const headers = addSecurityHeaders(new Headers(originResponse.headers));
     if (upstream.pathname !== "/overview") headers.set("X-Robots-Tag", "noindex, nofollow");
 
     const location = headers.get("Location");

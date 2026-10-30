@@ -5,7 +5,7 @@
     <form action="/users/add" method="POST">
       <label class="form-label">Повне ім’я</label><input class="form-control mb-3" name="full_name" maxlength="100" required>
       <label class="form-label">Логін</label><input class="form-control mb-3" name="username" minlength="3" maxlength="50" autocomplete="off" required>
-      <label class="form-label">Пароль</label><input class="form-control mb-3" type="password" name="password" minlength="8" autocomplete="new-password" required>
+      <label class="form-label">Пароль</label><input class="form-control mb-3" type="password" name="password" minlength="12" maxlength="1024" autocomplete="new-password" required>
       <button class="btn btn-royal w-100" type="submit">Створити акаунт</button>
     </form>
   </section></div>

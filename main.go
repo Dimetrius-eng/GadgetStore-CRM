@@ -6,9 +6,13 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"time"
 )
 
 func main() {
+	if envOr("APP_ENV", "") == "production" && len(strings.TrimSpace(os.Getenv("ORIGIN_VERIFY_SECRET"))) < 32 {
+		log.Fatal("ORIGIN_VERIFY_SECRET must be configured in production with at least 32 characters")
+	}
 	// Ініціалізація підключення до бази даних PostgreSQL (127.0.0.1:5433)
 	InitDB()
 	startDemoCleanup()
@@ -19,6 +23,7 @@ func main() {
 	http.Handle("/uploads/", http.StripPrefix("/uploads/", http.FileServer(http.Dir("uploads"))))
 
 	// Публічний маршрут авторизації
+	http.HandleFunc("/healthz", HealthHandler)
 	http.HandleFunc("/login", LoginHandler)
 	http.HandleFunc("/logout", LogoutHandler)
 	http.HandleFunc("/overview", CRMOverviewHandler)
@@ -69,13 +74,35 @@ func main() {
 
 	port := envOr("PORT", envOr("APP_PORT", "8080"))
 	fmt.Printf("🚀 Веб-сайт запущено! Відкрийте у браузері: http://localhost:%s\n", port)
-	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		host := strings.ToLower(r.Host)
 		if host == "gadget-store-crm.tech" || host == "www.gadget-store-crm.tech" {
 			http.Redirect(w, r, "https://dimetrius-eng.tech/gadget-store-crm/overview", http.StatusMovedPermanently)
 			return
 		}
 		http.DefaultServeMux.ServeHTTP(w, r)
-	})
-	log.Fatal(http.ListenAndServe(":"+port, handler))
+	}))
+	handler = sameOriginMutationGuard(handler)
+	handler = securityHeaders(handler)
+	server := &http.Server{
+		Addr:              ":" + port,
+		Handler:           handler,
+		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       30 * time.Second,
+		WriteTimeout:      60 * time.Second,
+		IdleTimeout:       60 * time.Second,
+		MaxHeaderBytes:    1 << 20,
+	}
+	log.Fatal(server.ListenAndServe())
+}
+
+// HealthHandler is intentionally unauthenticated for the hosting platform's
+// direct health probe. It returns no service or database details.
+func HealthHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet && r.Method != http.MethodHead {
+		w.Header().Set("Allow", "GET, HEAD")
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }

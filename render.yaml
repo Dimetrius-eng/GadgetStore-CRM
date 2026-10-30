@@ -6,10 +6,14 @@ services:
     region: frankfurt
     dockerfilePath: ./Dockerfile
     dockerContext: .
-    healthCheckPath: /login
+    healthCheckPath: /healthz
     envVars:
       - key: APP_ENV
         value: production
+      - key: APP_ALLOWED_ORIGINS
+        value: https://dimetrius-eng.tech,https://gadget-store-crm.tech,https://www.gadget-store-crm.tech,https://gadget-store-crm-jj8m.onrender.com
+      - key: ORIGIN_VERIFY_SECRET
+        sync: false
       - key: PORT
         value: "10000"
       - key: DATABASE_URL

@@ -9,6 +9,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"log"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -23,7 +24,7 @@ func hashPassword(password string) string {
 	if _, err := rand.Read(salt); err != nil {
 		panic("cannot generate password salt")
 	}
-	const iterations = 120000
+	const iterations = 600000
 	derived := pbkdf2SHA256([]byte(password), salt, iterations)
 	return fmt.Sprintf("pbkdf2-sha256$%d$%s$%s", iterations, hex.EncodeToString(salt), hex.EncodeToString(derived))
 }
@@ -45,6 +46,15 @@ func verifyPassword(password, encoded string) bool {
 	return len(encoded) == len(legacyHex) && subtle.ConstantTimeCompare([]byte(encoded), []byte(legacyHex)) == 1
 }
 
+func passwordHashNeedsUpgrade(encoded string) bool {
+	fields := strings.SplitN(encoded, "$", 3)
+	if len(fields) != 3 || fields[0] != "pbkdf2-sha256" {
+		return true
+	}
+	iterations, err := strconv.Atoi(fields[1])
+	return err != nil || iterations < 600000
+}
+
 func pbkdf2SHA256(password, salt []byte, iterations int) []byte {
 	mac := hmac.New(sha256.New, password)
 	mac.Write(salt)
@@ -64,6 +74,19 @@ func pbkdf2SHA256(password, salt []byte, iterations int) []byte {
 
 func InitDB() {
 	conn := os.Getenv("DATABASE_URL")
+	if envOr("APP_ENV", "") == "production" {
+		if conn == "" {
+			log.Fatal("DATABASE_URL must be configured in production")
+		}
+		parsed, err := url.Parse(conn)
+		if err != nil || parsed.Scheme != "postgres" && parsed.Scheme != "postgresql" {
+			log.Fatal("DATABASE_URL must be a valid PostgreSQL URL")
+		}
+		sslmode := parsed.Query().Get("sslmode")
+		if sslmode != "require" && sslmode != "verify-ca" && sslmode != "verify-full" {
+			log.Fatal("DATABASE_URL must require TLS with sslmode=require or stronger")
+		}
+	}
 	if conn == "" {
 		port := envOr("DB_PORT", "5433")
 		user := envOr("DB_USER", "postgres")
@@ -108,6 +131,14 @@ func InitDB() {
 			id SERIAL PRIMARY KEY, username VARCHAR(50) UNIQUE NOT NULL, password_hash VARCHAR(255) NOT NULL,
 			full_name VARCHAR(100) NOT NULL DEFAULT 'Адміністратор', role VARCHAR(20) NOT NULL DEFAULT 'admin',
 			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`,
+		`CREATE TABLE IF NOT EXISTS auth_sessions (
+			token_hash CHAR(64) PRIMARY KEY,
+			user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+			created_at TIMESTAMPTZ NOT NULL,
+			last_activity TIMESTAMPTZ NOT NULL,
+			expires_at TIMESTAMPTZ NOT NULL)`,
+		`CREATE INDEX IF NOT EXISTS auth_sessions_expiry_idx ON auth_sessions(expires_at)`,
+		`CREATE INDEX IF NOT EXISTS auth_sessions_activity_idx ON auth_sessions(last_activity)`,
 		`ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check`,
 		`ALTER TABLE users ADD CONSTRAINT users_role_check CHECK (role IN ('admin','manager'))`,
 		`CREATE TABLE IF NOT EXISTS demo_sessions (
@@ -169,6 +200,34 @@ func InitDB() {
 			log.Fatalf("database migration failed: %v", err)
 		}
 	}
+	if strings.TrimSpace(os.Getenv("SUPABASE_URL")) != "" {
+		// The CRM uses PostgreSQL directly from Go and does not use the Supabase
+		// Data API for application tables. Remove its public roles' access so a
+		// discovered project URL/key cannot expose business data through REST.
+		for _, role := range []string{"anon", "authenticated"} {
+			var roleExists bool
+			if err := DB.QueryRow(`SELECT EXISTS(SELECT 1 FROM pg_roles WHERE rolname=$1)`, role).Scan(&roleExists); err != nil {
+				log.Fatalf("could not inspect Supabase API roles: %v", err)
+			}
+			if !roleExists {
+				continue
+			}
+			statements := []string{
+				"REVOKE ALL ON SCHEMA public FROM " + role,
+				"REVOKE ALL ON ALL TABLES IN SCHEMA public FROM " + role,
+				"REVOKE ALL ON ALL SEQUENCES IN SCHEMA public FROM " + role,
+				"REVOKE EXECUTE ON ALL FUNCTIONS IN SCHEMA public FROM " + role,
+				"ALTER DEFAULT PRIVILEGES IN SCHEMA public REVOKE ALL ON TABLES FROM " + role,
+				"ALTER DEFAULT PRIVILEGES IN SCHEMA public REVOKE ALL ON SEQUENCES FROM " + role,
+				"ALTER DEFAULT PRIVILEGES IN SCHEMA public REVOKE EXECUTE ON FUNCTIONS FROM " + role,
+			}
+			for _, statement := range statements {
+				if _, err := DB.Exec(statement); err != nil {
+					log.Fatalf("could not restrict Supabase API role %s: %v", role, err)
+				}
+			}
+		}
+	}
 	adminUsername := envOr("ADMIN_USERNAME", "admin")
 	adminPassword := envOr("ADMIN_PASSWORD", "admin123")
 	managerUsername := envOr("MANAGER_USERNAME", "manager")
@@ -193,6 +252,13 @@ func envOr(key, fallback string) string {
 }
 
 func seedUser(username, password, fullName, role string) {
+	var exists bool
+	if err := DB.QueryRow(`SELECT EXISTS(SELECT 1 FROM users WHERE LOWER(username)=LOWER($1))`, username).Scan(&exists); err != nil {
+		log.Fatalf("check seed user %s: %v", username, err)
+	}
+	if exists {
+		return
+	}
 	_, err := DB.Exec(`INSERT INTO users (username, password_hash, full_name, role) VALUES ($1,$2,$3,$4)
 		ON CONFLICT (username) DO NOTHING`, username, hashPassword(password), fullName, role)
 	if err != nil {

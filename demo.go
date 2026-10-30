@@ -23,8 +23,16 @@ func startDemoCleanup() {
 		defer ticker.Stop()
 		for range ticker.C {
 			pruneExpiredDemoSessions()
+			pruneExpiredAuthSessions()
 		}
 	}()
+}
+
+func pruneExpiredAuthSessions() {
+	if _, err := DB.Exec(`DELETE FROM auth_sessions WHERE expires_at<=NOW()
+		OR last_activity<=NOW()-($1 * INTERVAL '1 second')`, int64(sessionIdleTimeout.Seconds())); err != nil {
+		log.Printf("Could not clean expired employee sessions: %v", err)
+	}
 }
 
 func pruneExpiredDemoSessions() {
@@ -130,7 +138,6 @@ func DemoHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func ensureDemoSession(w http.ResponseWriter, r *http.Request) (string, bool) {
-	_, _ = DB.Exec(`DELETE FROM demo_sessions WHERE expires_at <= NOW()`)
 	if cookie, err := r.Cookie("demo_session"); err == nil && len(cookie.Value) == 64 {
 		var token string
 		err := DB.QueryRow(`UPDATE demo_sessions SET last_seen_at=NOW(), expires_at=NOW()+($2 * INTERVAL '1 second')
@@ -477,6 +484,19 @@ func DemoProductAddHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+	count, imageBytes, err := demoProductUsage(token)
+	if err != nil {
+		http.Error(w, "Не вдалося перевірити ліміти демо", http.StatusInternalServerError)
+		return
+	}
+	if count >= demoProductCountLimit {
+		http.Error(w, "У демо можна додати не більше 50 товарів", http.StatusBadRequest)
+		return
+	}
+	if imageBytes+len(imageData) > demoImageStorageLimit {
+		http.Error(w, "У демо досягнуто ліміту фото (20 МБ). Видаліть кілька фото або скиньте демо.", http.StatusBadRequest)
+		return
+	}
 	if _, err = DB.Exec(`INSERT INTO demo_products(session_token,title,sku,brand,category,purchase_price,selling_price,quantity,warranty_months,image_data,image_content_type) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`, token, p.Title, p.SKU, p.Brand, p.Category, p.PurchasePrice, p.SellingPrice, p.Quantity, p.WarrantyMonth, nullableDemoImage(imageData), nullableDemoImageType(imageType)); err != nil {
 		http.Error(w, "Не вдалося додати товар. Артикул має бути унікальним.", http.StatusBadRequest)
 		return
@@ -510,6 +530,21 @@ func DemoProductEditHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	removeImage := r.FormValue("remove_image") == "1"
 	imageChanged := len(imageData) > 0 || removeImage
+	if imageChanged {
+		count, imageBytes, usageErr := demoProductUsage(token)
+		var previousImageBytes int
+		if usageErr == nil {
+			usageErr = DB.QueryRow(`SELECT COALESCE(octet_length(image_data),0) FROM demo_products WHERE session_token=$1 AND id=$2`, token, id).Scan(&previousImageBytes)
+		}
+		if usageErr != nil {
+			http.NotFound(w, r)
+			return
+		}
+		if count > demoProductCountLimit || imageBytes-previousImageBytes+len(imageData) > demoImageStorageLimit {
+			http.Error(w, "У демо досягнуто ліміту фото (20 МБ). Видаліть кілька фото або скиньте демо.", http.StatusBadRequest)
+			return
+		}
+	}
 	if _, err = DB.Exec(`UPDATE demo_products SET title=$3,sku=$4,brand=$5,category=$6,purchase_price=$7,selling_price=$8,quantity=$9,warranty_months=$10,
 		image_data=CASE WHEN $11 THEN $12 ELSE image_data END,
 		image_content_type=CASE WHEN $11 THEN $13 ELSE image_content_type END
@@ -525,6 +560,14 @@ func DemoProductEditHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 const demoProductImageLimit = 5 << 20
+const demoProductCountLimit = 50
+const demoImageStorageLimit = 20 << 20
+
+func demoProductUsage(token string) (count, imageBytes int, err error) {
+	err = DB.QueryRow(`SELECT COUNT(*),COALESCE(SUM(octet_length(image_data)),0)
+		FROM demo_products WHERE session_token=$1`, token).Scan(&count, &imageBytes)
+	return
+}
 
 func readDemoProductImage(w http.ResponseWriter, r *http.Request) ([]byte, string, error) {
 	r.Body = http.MaxBytesReader(w, r.Body, demoProductImageLimit+(1<<20))

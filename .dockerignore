@@ -1,9 +1,13 @@
 .git
 .idea
 .vscode
+.wrangler
 .env
 .env.*
-!.env.example
+*.dump
+*.backup
+*.sql
+*-restore.list
 *.exe
 *.test
 coverage.*
