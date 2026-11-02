@@ -264,8 +264,8 @@ func getCurrentUsername(r *http.Request) string {
 
 // Вхід у систему
 func LoginHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet && r.Method != http.MethodPost {
-		w.Header().Set("Allow", "GET, POST")
+	if r.Method != http.MethodGet && r.Method != http.MethodHead && r.Method != http.MethodPost {
+		w.Header().Set("Allow", "GET, HEAD, POST")
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
