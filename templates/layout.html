@@ -251,7 +251,7 @@ const en = {
   'Демо-режим CRM — тут лише вигадані дані.':'CRM demo mode — fictional data only.','Зв’язатися з розробником':'Contact the developer','Демо-перегляд':'Demo session','Скинути демо':'Reset demo','Завершити':'Exit demo',
   'Вийти з системи':'Sign out','Система обліку товарів та продажів':'Inventory and sales management system',
   'Каталог гаджетів':'Gadget catalog','Управління асортиментом та залишками товарів':'Manage products and stock','Додати гаджет':'Add product',
-  'Пошук за назвою гаджета або артикулом (SKU)...':'Search by product name or SKU...','Знайти':'Search','Назва гаджета':'Product name',
+  'Пошук за назвою гаджета або артикулом (SKU)...':'Search by product name or SKU...','Пошук товарів':'Search products','Знайти':'Search','Назва гаджета':'Product name',
   'Фото':'Photo','Артикул (SKU)':'SKU','Категорія':'Category','Бренд':'Brand','Закупівля':'Cost','Продаж':'Price','Залишок':'Stock',
   'Гарантія':'Warranty','Дії':'Actions','Товарів не знайдено.':'No products found.','Аналітичний Дашборд':'Analytics dashboard',
   'Огляд ключових показників магазину гаджетів':'Store performance overview','Новий продаж':'New sale','Всього товарів':'Products in stock',
@@ -336,13 +336,15 @@ document.getElementById('languageToggle').addEventListener('click', () => transl
 (()=>{
   const compactQuery=window.matchMedia('(max-width: 575.98px)');
   const placeholders={
-      uk:{full:'Пошук за назвою, датою, номером чека або телефоном...',compact:'Пошук чеків'},
-      en:{full:'Search by product, date, receipt number, or phone...',compact:'Search receipts'}
+    uk:{full:'Пошук за назвою, датою, номером чека або телефоном...',compact:'Пошук чеків',productFull:'Пошук за назвою гаджета або артикулом (SKU)...',productCompact:'Пошук товарів'},
+    en:{full:'Search by product, date, receipt number, or phone...',compact:'Search receipts',productFull:'Search by product name or SKU...',productCompact:'Search products'}
   };
   const update=()=>{
     const language=document.documentElement.lang==='en'?'en':'uk';
     const text=compactQuery.matches?placeholders[language].compact:placeholders[language].full;
     document.querySelectorAll('#salesSearch,#demoSalesSearch').forEach(input=>input.placeholder=text);
+    const productText=compactQuery.matches?placeholders[language].productCompact:placeholders[language].productFull;
+    document.querySelectorAll('.product-catalog-search').forEach(input=>input.placeholder=productText);
   };
   compactQuery.addEventListener?.('change',update);
   window.addEventListener('resize',update,{passive:true});
