@@ -13,8 +13,8 @@
   ],
   "routes": [
     {
-      "pattern": "dimetrius-eng.tech/*",
-      "zone_name": "dimetrius-eng.tech"
+      "pattern": "dimetrius-eng.tech",
+      "custom_domain": true
     },
     {
       "pattern": "gadget-store-crm.tech",
