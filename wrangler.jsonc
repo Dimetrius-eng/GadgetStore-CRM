@@ -17,8 +17,8 @@
       "zone_name": "dimetrius-eng.tech"
     },
     {
-      "pattern": "gadget-store-crm.tech/*",
-      "zone_name": "gadget-store-crm.tech"
+      "pattern": "gadget-store-crm.tech",
+      "custom_domain": true
     },
     {
       "pattern": "www.gadget-store-crm.tech/*",
