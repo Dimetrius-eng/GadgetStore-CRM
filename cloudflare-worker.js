@@ -3,6 +3,8 @@ const APP_PREFIX = "/gadget-store-crm";
 const RENDER_ORIGIN = "https://gadget-store-crm-jj8m.onrender.com";
 const RENDER_HOST = new URL(RENDER_ORIGIN).hostname;
 const PORTFOLIO_ORIGIN = "https://dimetrius-portfolio.pages.dev";
+const RUDENKO_PREFIX = "/rudenko-design";
+const RUDENKO_ORIGIN = "https://rudenko-design.onrender.com";
 
 function addSecurityHeaders(headers) {
   headers.set("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
@@ -21,6 +23,21 @@ export default {
       const response = Response.redirect(`https://dimetrius-eng.tech${APP_PREFIX}/overview${incoming.search}`, 301);
       return new Response(null, { status: response.status, headers: addSecurityHeaders(new Headers(response.headers)) });
     }
+    if (incoming.pathname === RUDENKO_PREFIX || incoming.pathname.startsWith(`${RUDENKO_PREFIX}/`)) {
+      const relativePath = incoming.pathname.slice(RUDENKO_PREFIX.length) || "/";
+      const finalSegment = relativePath.split("/").pop() || "";
+      const isFileRequest = /\.[a-z0-9]{1,12}$/i.test(finalSegment);
+      const upstream = new URL(isFileRequest ? relativePath : "/index.html", RUDENKO_ORIGIN);
+      upstream.search = incoming.search;
+      const upstreamRequest = new Request(upstream, request);
+      const originResponse = await fetch(upstreamRequest);
+      const headers = addSecurityHeaders(new Headers(originResponse.headers));
+      return new Response(request.method === "HEAD" ? null : originResponse.body, {
+        status: originResponse.status,
+        statusText: originResponse.statusText,
+        headers,
+      });
+    }
     if (incoming.pathname === "/robots.txt") {
       return new Response(
         "User-agent: *\nAllow: /\nDisallow: /gadget-store-crm/demo\nDisallow: /gadget-store-crm/login\nDisallow: /gadget-store-crm/products\nDisallow: /gadget-store-crm/sales\nDisallow: /gadget-store-crm/users\nSitemap: https://dimetrius-eng.tech/sitemap.xml\n",
@@ -33,6 +50,10 @@ export default {
         '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' +
         '<url><loc>https://dimetrius-eng.tech/</loc></url>' +
         '<url><loc>https://dimetrius-eng.tech/gadget-store-crm/overview</loc></url>' +
+        '<url><loc>https://dimetrius-eng.tech/rudenko-design/</loc></url>' +
+        '<url><loc>https://dimetrius-eng.tech/rudenko-design/about</loc></url>' +
+        '<url><loc>https://dimetrius-eng.tech/rudenko-design/projects</loc></url>' +
+        '<url><loc>https://dimetrius-eng.tech/rudenko-design/contacts</loc></url>' +
         '</urlset>',
         { headers: { "Content-Type": "application/xml; charset=utf-8", "Cache-Control": "no-store" } },
       );
